@@ -1,6 +1,6 @@
 // Self-check for the rules + AI. Run: node test.mjs
 import assert from 'node:assert';
-import { newBoard, idx, BLACK, WHITE, forbidden, isWin, winLine, bestMove, analyzePoint, label } from './engine.js';
+import { newBoard, idx, BLACK, WHITE, forbidden, isWin, winLine, bestMove, analyzePoint, coach, label } from './engine.js';
 
 const ALL = { doubleThree: true, doubleFour: true, overline: true };
 const FREE = { doubleThree: false, doubleFour: false, overline: false };
@@ -54,6 +54,29 @@ assert.equal(bestMove(b, BLACK, ALL, 'medium'), idx(9, 5), 'AI should block');
 b = put(newBoard(), BLACK, [5, 7], [6, 7], [7, 5], [7, 6]);
 put(b, WHITE, [10, 10], [11, 11]);
 assert.notEqual(bestMove(b, BLACK, ALL, 'hard'), idx(7, 7));
+
+// the coach flags an opponent open three the player walked past...
+b = put(newBoard(), WHITE, [6, 7], [7, 7], [8, 7]);
+put(b, BLACK, [0, 0]);
+let note = coach(b, idx(14, 14), BLACK, ALL);
+assert.equal(note?.key, 'missOpenThree');
+assert.ok(['F8', 'J8'].includes(label(note.at)), label(note.at));
+
+// ...but not a closed three, which is answerable and only costs tempo
+b = put(newBoard(), WHITE, [6, 7], [7, 7], [8, 7]);
+put(b, BLACK, [5, 7]);
+assert.equal(coach(b, idx(14, 14), BLACK, ALL), null, 'a blocked three is not an emergency');
+
+// an unblocked four is still an emergency
+b = put(newBoard(), WHITE, [6, 7], [7, 7], [8, 7], [9, 7]);
+put(b, BLACK, [0, 0]);
+assert.equal(coach(b, idx(14, 14), BLACK, ALL)?.key, 'missBlock');
+
+// taking your own win beats warning about theirs
+b = put(newBoard(), BLACK, [3, 7], [4, 7], [5, 7], [6, 7]);
+put(b, WHITE, [6, 9], [7, 9], [8, 9]);
+assert.equal(coach(b, idx(14, 14), BLACK, ALL)?.key, 'missWin');
+assert.equal(coach(b, idx(7, 7), BLACK, ALL), null, 'no nagging when you did win');
 
 assert.equal(label(idx(7, 7)), 'H8');
 console.log('all ok');

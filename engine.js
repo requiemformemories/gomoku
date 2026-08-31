@@ -69,24 +69,27 @@ function openThreeIn(b, x, y, dx, dy, c, rules, depth) {
 
 // --- point analysis ----------------------------------------------------------
 
-/** What placing `c` at empty point `p` achieves: {five, over, fours, threes}. */
+/** What placing `c` at empty point `p` achieves: {five, over, fours, straight, threes}.
+ *  `straight` counts straight fours (.XXXX.) — unstoppable, so a point that makes one
+ *  is proof the player already had an open three there. */
 export function analyzePoint(b, p, c, rules, depth = 0) {
   if (b[p] !== EMPTY) return null;
   const exact = c === BLACK && !!rules.overline;
   const [x, y] = xy(p);
   b[p] = c;
-  let five = false, over = false, fours = 0, threes = 0;
+  let five = false, over = false, fours = 0, straight = 0, threes = 0;
   for (const [dx, dy] of DIRS) {
     const n = runLen(b, x, y, dx, dy, c);
     if (n >= 6) over = true;
     if (exact ? n === 5 : n >= 5) five = true;
     const pts = fivePoints(b, x, y, dx, dy, c, exact);
     // a straight four (.XXXX.) has two five-points but counts as one four
-    if (pts.length) fours += (pts.length >= 2 && n === 4) ? 1 : pts.length;
+    if (pts.length >= 2 && n === 4) { fours++; straight++; }
+    else fours += pts.length;
   }
   if (!five) for (const [dx, dy] of DIRS) if (openThreeIn(b, x, y, dx, dy, c, rules, depth)) threes++;
   b[p] = EMPTY;
-  return { five, over, fours, threes };
+  return { five, over, fours, straight, threes };
 }
 
 /** Renju foul for black at `p`, or null. Returns 'overline'|'doubleFour'|'doubleThree'. */
@@ -274,27 +277,26 @@ export function hint(b, c, rules, level = 'hard') {
   return { move: p, reason };
 }
 
-/** After `c` plays at `p`: was an obvious tactic missed? (`b` = position before the move) */
+/** After `c` plays at `p`: was a must-answer threat missed? (`b` = position before the move)
+ *  Only genuine emergencies — a win on the table, an unblocked four, or an opponent open
+ *  three. A four the opponent *could* make is tempo, not a threat, so it is not flagged. */
 export function coach(b, p, c, rules) {
   const op = other(c);
-  const win = legalMoves(b, c, rules).find(q => analyzePoint(b, q, c, rules).five);
-  if (win != null && win !== p) return { key: 'missWin', at: win };
   const mine = analyzePoint(b, p, c, rules);
-  if (mine.five) return null;
+  if (mine.five) return null;                 // you won — a five elsewhere is not a miss
+  const win = legalMoves(b, c, rules).find(q => analyzePoint(b, q, c, rules).five);
+  if (win != null) return { key: 'missWin', at: win };
   b[p] = c;                                   // judge the threats that survive the move
-  let five = null, four = null, three = null;
+  let five = null, straight = null;
   for (const q of candidates(b)) {
     const a = analyzePoint(b, q, op, rules);
     if (a.five) { if (five == null) five = q; }
-    else if (a.fours) { if (four == null) four = q; }
-    else if (a.threes) { if (three == null) three = q; }
+    else if (a.straight && straight == null) straight = q;
   }
   b[p] = EMPTY;
   if (five != null) return { key: 'missBlock', at: five };
-  if (mine.fours) return null;                // your own four forces a reply first
-  if (four != null) return { key: 'missFour', at: four };
-  if (mine.threes) return null;               // trading open threes is fair
-  if (three != null) return { key: 'missThree', at: three };
+  if (mine.fours) return null;                // your own four forces them to answer first
+  if (straight != null) return { key: 'missOpenThree', at: straight };
   return null;
 }
 
