@@ -1,5 +1,7 @@
 # Gomoku Trainer / 五子棋練習
 
+**Live: <https://fumitsuki.tw/gomoku/>**
+
 Static page — no build step, no dependencies, no server. The AI runs in the browser,
 so GitHub Pages is all you need.
 
@@ -13,14 +15,9 @@ so GitHub Pages is all you need.
 python3 -m http.server 8000   # ES modules need http://, file:// won't load
 ```
 
-## Deploy to GitHub Pages
+## Deploy
 
-```sh
-git init && git add . && git commit -m "gomoku trainer"
-gh repo create gomoku --public --source=. --push
-```
-
-Then Settings → Pages → Source: *Deploy from a branch*, branch `main` / `/ (root)`.
+GitHub Pages serves `main` at the repo root — `git push` is the whole deploy step.
 
 ## Notes
 
