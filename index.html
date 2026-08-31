@@ -1,0 +1,494 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#1d2126">
+<title>五子棋練習 · Gomoku Trainer</title>
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  [hidden] { display: none !important; }
+  :root { --bg:#1d2126; --fg:#e8e6e1; --dim:#9aa1a9; --line:#333a42; --acc:#5aa9e6; }
+  body { margin:0; color:var(--fg); font:15px/1.5 system-ui,-apple-system,"Noto Sans TC",sans-serif;
+    background:
+      radial-gradient(1200px 600px at 15% -10%, #26313d 0%, transparent 60%),
+      radial-gradient(900px 500px at 100% 100%, #1f2a38 0%, transparent 55%),
+      var(--bg);
+    background-attachment: fixed; }
+  header { display:flex; align-items:center; gap:.6rem; padding:.7rem 1rem; border-bottom:1px solid var(--line); }
+  h1 { font-size:1.05rem; margin:0; font-weight:600; flex:1; min-width:0; }
+  main { display:grid; grid-template-columns:1fr; gap:1rem; padding:.75rem; justify-items:center; }
+  #boardWrap { width:min(100%, 62vh); aspect-ratio:1; touch-action:manipulation; }
+  canvas { width:100%; height:100%; display:block;
+    filter: drop-shadow(0 16px 34px rgba(0,0,0,.55)); }
+  #panel { width:100%; max-width:420px; display:flex; flex-direction:column; gap:.6rem; }
+  @media (min-width:820px) {
+    main { grid-template-columns:auto minmax(260px,360px); align-items:start; justify-content:center; padding:1rem; }
+    #boardWrap { width:min(58vw, 86vh); }
+  }
+  #status { font-weight:600; margin:0; }
+  #msg { margin:0; min-height:2.4em; color:var(--dim); font-size:.9rem; }
+  #msg b { color:var(--acc); }
+  .row { display:flex; gap:.5rem; flex-wrap:wrap; }
+  button, select { font:inherit; color:var(--fg); border:1px solid var(--line); border-radius:10px;
+    padding:.5rem .8rem; cursor:pointer; background:linear-gradient(#2f3743, #262d37);
+    box-shadow:0 1px 0 rgba(255,255,255,.05) inset, 0 2px 6px rgba(0,0,0,.3); transition:filter .12s; }
+  button:hover:not(:disabled) { filter:brightness(1.18); }
+  button:active { filter:brightness(.92); }
+  button.primary { background:linear-gradient(#6fb8f0, #3d8fd0); color:#0b1118; border-color:transparent;
+    font-weight:600; box-shadow:0 2px 14px rgba(90,169,230,.4); }
+  button:disabled { opacity:.45; cursor:default; }
+  .row > button { flex:1 1 auto; }
+  details { border:1px solid var(--line); border-radius:12px; padding:.5rem .7rem;
+    background:rgba(255,255,255,.025); backdrop-filter:blur(6px); }
+  summary { cursor:pointer; font-weight:600; }
+  label { display:flex; align-items:center; gap:.5rem; margin:.5rem 0; font-size:.92rem; }
+  label input { width:1.05rem; height:1.05rem; accent-color:var(--acc); }
+  label select { flex:1; padding:.35rem .5rem; }
+  .hr { border-top:1px solid var(--line); margin:.6rem -.7rem; }
+  .legend { font-size:.8rem; color:var(--dim); }
+</style>
+</head>
+<body>
+<header>
+  <h1 data-i18n="title"></h1>
+  <button id="lang">EN</button>
+</header>
+<main>
+  <div id="boardWrap"><canvas id="board"></canvas></div>
+  <aside id="panel">
+    <p id="status"></p>
+    <p id="msg"></p>
+    <div class="row">
+      <button id="hint" class="primary" data-i18n="hint"></button>
+      <button id="undo" data-i18n="undo"></button>
+      <button id="newGame" data-i18n="newGame"></button>
+    </div>
+    <div class="row" id="confirmRow" hidden>
+      <button id="ok" class="primary" data-i18n="confirmMove"></button>
+      <button id="cancel" data-i18n="cancel"></button>
+    </div>
+    <details open>
+      <summary data-i18n="settings"></summary>
+      <label><span data-i18n="difficulty"></span>
+        <select id="level">
+          <option value="easy" data-i18n="easy"></option>
+          <option value="medium" data-i18n="medium"></option>
+          <option value="hard" data-i18n="hard"></option>
+          <option value="expert" data-i18n="expert"></option>
+        </select>
+      </label>
+      <label><span data-i18n="playAs"></span>
+        <select id="side">
+          <option value="1" data-i18n="black"></option>
+          <option value="2" data-i18n="white"></option>
+        </select>
+      </label>
+      <div class="hr"></div>
+      <strong data-i18n="rulesHead"></strong>
+      <label><input type="checkbox" id="doubleThree"><span data-i18n="doubleThree"></span></label>
+      <label><input type="checkbox" id="doubleFour"><span data-i18n="doubleFour"></span></label>
+      <label><input type="checkbox" id="overline"><span data-i18n="overline"></span></label>
+      <p class="legend" data-i18n="rulesNote"></p>
+      <div class="hr"></div>
+      <strong data-i18n="learnHead"></strong>
+      <label><input type="checkbox" id="coach"><span data-i18n="coachOpt"></span></label>
+      <label><input type="checkbox" id="showThreats"><span data-i18n="threatsOpt"></span></label>
+      <label><input type="checkbox" id="showForbidden"><span data-i18n="forbiddenOpt"></span></label>
+      <label><input type="checkbox" id="needConfirm"><span data-i18n="confirmOpt"></span></label>
+      <p class="legend" data-i18n="legend"></p>
+    </details>
+  </aside>
+</main>
+
+<script type="module">
+import { SIZE, EMPTY, BLACK, WHITE, newBoard, idx, xy, other, forbidden, winLine,
+         bestMove, hint as getHint, coach, threats, label, legalMoves, candidates } from './engine.js';
+
+const I18N = {
+  zh: {
+    title: '五子棋練習', newGame: '新局', undo: '悔棋', hint: '提示',
+    settings: '設定', difficulty: '難度', easy: '入門', medium: '普通', hard: '困難', expert: '高手',
+    playAs: '我執', black: '黑（先手）', white: '白（後手）',
+    rulesHead: '黑棋禁手',
+    doubleThree: '禁雙活三（三三）', doubleFour: '禁雙四（四四）', overline: '禁長連（六子以上不算勝）',
+    rulesNote: '全部關閉＝自由五子棋，黑棋無限制。開啟時黑棋踩到禁手點會被擋下並說明原因。',
+    learnHead: '學習輔助',
+    coachOpt: '教練提醒（下錯時告訴我）', threatsOpt: '標示對手威脅點',
+    forbiddenOpt: '標示我的禁手點', confirmOpt: '落子需確認（手機建議開）',
+    confirmMove: '確認落子', cancel: '取消',
+    legend: '紅圈＝對手可成四／五　橘圈＝對手活三　紅✕＝黑棋禁手　綠圈＝提示',
+    yourTurn: '你的回合', aiTurn: 'AI 思考中…',
+    youWin: '你贏了 🎉', aiWin: 'AI 贏了', draw: '和局',
+    hintTip: '建議下 <b>{p}</b>：{why}',
+    win: '直接連五獲勝。', blockWin: '對手下一手就連五，必須先擋。',
+    makeFour: '形成「四」，對手必須擋，你就取得主動。',
+    blockFour: '對手在這裡會成「四」，先擋掉。',
+    makeThree: '形成「活三」開始進攻，兩端都能延伸成活四。',
+    blockThree: '對手下這裡會形成「活三」，不擋就會變活四擋不住。',
+    develop: '擴展棋形、往中央連結，準備做雙威脅。',
+    missWin: '你剛剛其實可以下 <b>{p}</b> 直接連五獲勝！',
+    missBlock: '危險：對手下 <b>{p}</b> 就連五了，這手沒擋住。',
+    missFour: '注意：對手下 <b>{p}</b> 會成四，你得回防。',
+    missThree: '對手下 <b>{p}</b> 就會形成活三，通常要優先處理。',
+    fb_overline: '禁手：長連（六子以上）', fb_doubleFour: '禁手：雙四（四四）', fb_doubleThree: '禁手：雙活三（三三）',
+    noMove: '黑棋沒有合法點可下。',
+  },
+  en: {
+    title: 'Gomoku Trainer', newGame: 'New game', undo: 'Undo', hint: 'Hint',
+    settings: 'Settings', difficulty: 'Difficulty', easy: 'Beginner', medium: 'Normal', hard: 'Hard', expert: 'Expert',
+    playAs: 'I play', black: 'Black (first)', white: 'White (second)',
+    rulesHead: 'Forbidden moves (black)',
+    doubleThree: 'No double open three (3-3)', doubleFour: 'No double four (4-4)', overline: 'No overline (6+ is not a win)',
+    rulesNote: 'All off = free-style gomoku, black unrestricted. When on, black is blocked from forbidden points with an explanation.',
+    learnHead: 'Learning aids',
+    coachOpt: 'Coach (tell me when I slip)', threatsOpt: 'Mark opponent threats',
+    forbiddenOpt: 'Mark my forbidden points', confirmOpt: 'Confirm before placing (good on phones)',
+    confirmMove: 'Place stone', cancel: 'Cancel',
+    legend: 'Red ring = opponent four/five · Orange = open three · Red ✕ = forbidden for black · Green = hint',
+    yourTurn: 'Your turn', aiTurn: 'AI thinking…',
+    youWin: 'You win 🎉', aiWin: 'AI wins', draw: 'Draw',
+    hintTip: 'Play <b>{p}</b>: {why}',
+    win: 'Completes five in a row.', blockWin: 'They make five next move — block it now.',
+    makeFour: 'Makes a four; they must answer, so you keep the initiative.',
+    blockFour: 'They would make a four here. Block first.',
+    makeThree: 'Makes an open three — it can grow into an unstoppable straight four.',
+    blockThree: 'Playing here gives them an open three, which grows into a straight four.',
+    develop: 'Extends your shape toward the centre, building toward a double threat.',
+    missWin: 'You could have played <b>{p}</b> for five in a row!',
+    missBlock: 'Danger: <b>{p}</b> now gives them five — that move did not stop it.',
+    missFour: 'Watch out: <b>{p}</b> makes them a four. You have to answer it.',
+    missThree: 'Playing <b>{p}</b> gives them an open three — usually answer that first.',
+    fb_overline: 'Forbidden: overline (six or more)', fb_doubleFour: 'Forbidden: double four (4-4)', fb_doubleThree: 'Forbidden: double open three (3-3)',
+    noMove: 'Black has no legal move.',
+  },
+};
+
+const load = (k, d) => { try { const v = localStorage.getItem('gk.' + k); return v === null ? d : JSON.parse(v); } catch { return d; } };
+const save = (k, v) => { try { localStorage.setItem('gk.' + k, JSON.stringify(v)); } catch {} };
+
+let lang = load('lang', navigator.language.startsWith('zh') ? 'zh' : 'en');
+const t = (k, v) => (I18N[lang][k] ?? k).replace(/\{(\w+)\}/g, (_, n) => v?.[n] ?? '');
+
+const S = {
+  board: newBoard(), history: [], turn: BLACK, over: null, thinking: false,
+  human: load('human', BLACK), level: load('level', 'medium'),
+  rules: load('rules', { doubleThree: true, doubleFour: true, overline: true }),
+  coach: load('coach', true), showThreats: load('showThreats', false),
+  showForbidden: load('showForbidden', true),
+  needConfirm: load('needConfirm', matchMedia('(pointer: coarse)').matches),
+  hint: null, pending: null, msg: '', hover: null,
+  winLine: null, marks: { threats: [], forbidden: [] },
+};
+
+const $ = s => document.querySelector(s);
+const cv = $('#board'), ctx = cv.getContext('2d');
+
+// --- rendering ---------------------------------------------------------------
+let cell = 0, pad = 0, clock = 0, raf = 0, drop = null;
+const slowMo = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const DROP_MS = 220;
+
+function resize() {
+  const dpr = devicePixelRatio || 1, w = cv.clientWidth;
+  cv.width = cv.height = Math.round(w * dpr);
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  cell = w / (SIZE + 1);
+  pad = cell;
+  draw();
+}
+
+const at = p => { const [x, y] = xy(p); return [pad + x * cell, pad + y * cell]; };
+
+function roundRect(x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+
+// easeOutBack — the stone overshoots slightly, then settles
+const pop = k => { const c1 = 1.9, c3 = c1 + 1; return 1 + c3 * (k - 1) ** 3 + c1 * (k - 1) ** 2; };
+const pulse = () => slowMo ? 1 : (Math.sin(clock / 420) + 1) / 2;
+// progress of the drop-in animation; same clock as its start, or it can stall
+const dropK = () => drop ? Math.min(1, (performance.now() - drop.t0) / DROP_MS) : 1;
+
+function stone(p, c, alpha = 1, scale = 1) {
+  const [cx, cy] = at(p), r = cell * 0.45 * scale;
+  if (r <= 0) return;
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.shadowColor = 'rgba(0,0,0,.6)';
+  ctx.shadowBlur = r * 0.7;
+  ctx.shadowOffsetY = r * 0.22;
+  const g = ctx.createRadialGradient(cx - r * 0.34, cy - r * 0.42, r * 0.05, cx, cy, r * 1.08);
+  if (c === BLACK) {
+    g.addColorStop(0, '#75808f'); g.addColorStop(.32, '#2c333e'); g.addColorStop(1, '#06080c');
+  } else {
+    g.addColorStop(0, '#ffffff'); g.addColorStop(.42, '#eef2f7'); g.addColorStop(1, '#a8b3c0');
+  }
+  ctx.fillStyle = g;
+  ctx.beginPath(); ctx.arc(cx, cy, r, 0, 7); ctx.fill();
+  ctx.shadowBlur = ctx.shadowOffsetY = 0;
+  ctx.strokeStyle = c === BLACK ? 'rgba(190,215,255,.20)' : 'rgba(25,35,50,.22)';
+  ctx.lineWidth = Math.max(1, r * 0.07);
+  ctx.stroke();
+  ctx.fillStyle = c === BLACK ? 'rgba(255,255,255,.26)' : 'rgba(255,255,255,.9)';
+  ctx.beginPath(); ctx.ellipse(cx - r * 0.3, cy - r * 0.36, r * 0.3, r * 0.17, -0.5, 0, 7); ctx.fill();
+  ctx.restore();
+}
+
+function glowRing(p, color, { r = 0.42, w = 0.075, glow = 0.55, dash = false, alpha = 1 } = {}) {
+  const [cx, cy] = at(p);
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.shadowColor = color; ctx.shadowBlur = cell * glow;
+  ctx.strokeStyle = color; ctx.lineWidth = Math.max(1.5, cell * w);
+  ctx.setLineDash(dash ? [cell * 0.14, cell * 0.14] : []);
+  ctx.beginPath(); ctx.arc(cx, cy, cell * r, 0, 7); ctx.stroke();
+  ctx.restore();
+}
+
+function cross(p, color) {
+  const [cx, cy] = at(p), r = cell * 0.24;
+  ctx.save();
+  ctx.shadowColor = color; ctx.shadowBlur = cell * 0.4;
+  ctx.strokeStyle = color; ctx.lineWidth = Math.max(2, cell * 0.09); ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(cx - r, cy - r); ctx.lineTo(cx + r, cy + r);
+  ctx.moveTo(cx + r, cy - r); ctx.lineTo(cx - r, cy + r);
+  ctx.stroke();
+  ctx.restore();
+}
+
+function drawBoard(w) {
+  ctx.clearRect(0, 0, w, w);
+  roundRect(0.5, 0.5, w - 1, w - 1, w * 0.035);
+  const g = ctx.createLinearGradient(0, 0, w * 0.7, w);
+  g.addColorStop(0, '#35414f'); g.addColorStop(.5, '#242e3b'); g.addColorStop(1, '#171e28');
+  ctx.fillStyle = g; ctx.fill();
+  const sheen = ctx.createRadialGradient(w * 0.22, w * 0.1, 0, w * 0.22, w * 0.1, w * 0.85);
+  sheen.addColorStop(0, 'rgba(140,190,255,.11)'); sheen.addColorStop(1, 'rgba(140,190,255,0)');
+  ctx.fillStyle = sheen; ctx.fill();
+  ctx.strokeStyle = 'rgba(255,255,255,.11)'; ctx.lineWidth = 1; ctx.stroke();
+
+  const last = pad + (SIZE - 1) * cell;
+  ctx.strokeStyle = 'rgba(178,205,240,.17)';
+  ctx.lineWidth = Math.max(1, cell * 0.022);
+  ctx.beginPath();
+  for (let i = 0; i < SIZE; i++) {
+    const v = pad + i * cell;
+    ctx.moveTo(pad, v); ctx.lineTo(last, v);
+    ctx.moveTo(v, pad); ctx.lineTo(v, last);
+  }
+  ctx.stroke();
+
+  ctx.fillStyle = 'rgba(160,200,245,.4)';
+  for (const [x, y] of [[3, 3], [11, 3], [3, 11], [11, 11], [7, 7]]) {
+    ctx.beginPath(); ctx.arc(pad + x * cell, pad + y * cell, cell * 0.09, 0, 7); ctx.fill();
+  }
+
+  ctx.fillStyle = 'rgba(206,222,242,.45)';
+  ctx.font = `600 ${Math.max(8, cell * 0.34)}px system-ui`;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  for (let i = 0; i < SIZE; i++) {
+    ctx.fillText('ABCDEFGHIJKLMNO'[i], pad + i * cell, pad * 0.42);
+    ctx.fillText(String(SIZE - i), pad * 0.42, pad + i * cell);
+  }
+}
+
+function draw() {
+  const w = cv.clientWidth;
+  if (!w) return;
+  drawBoard(w);
+
+  const k = dropK();
+  for (let p = 0; p < S.board.length; p++) {
+    if (!S.board[p]) continue;
+    const growing = drop && drop.p === p;
+    stone(p, S.board[p], growing ? Math.min(1, k * 2) : 1, growing ? pop(k) : 1);
+  }
+
+  const last = S.history.at(-1);
+  if (last != null && !S.winLine) {
+    const [cx, cy] = at(last);
+    ctx.fillStyle = S.board[last] === BLACK ? 'rgba(230,240,255,.85)' : 'rgba(30,40,55,.8)';
+    ctx.beginPath(); ctx.arc(cx, cy, cell * 0.09, 0, 7); ctx.fill();
+  }
+
+  if (S.winLine) {
+    const [ax, ay] = at(S.winLine[0]), [bx, by] = at(S.winLine.at(-1));
+    ctx.save();
+    ctx.strokeStyle = `rgba(94,240,170,${0.5 + 0.4 * pulse()})`;
+    ctx.shadowColor = '#3ddc84'; ctx.shadowBlur = cell * (0.7 + 0.6 * pulse());
+    ctx.lineWidth = cell * 0.13; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(bx, by); ctx.stroke();
+    ctx.restore();
+  } else {
+    for (const [p, d] of S.marks.threats)
+      glowRing(p, d === 2 ? 'rgba(255,86,86,.95)' : 'rgba(255,168,64,.95)', { dash: d === 1 });
+    for (const p of S.marks.forbidden) cross(p, 'rgba(255,72,72,.95)');
+  }
+
+  if (S.hint != null) glowRing(S.hint, '#3ddc84', { w: 0.09, glow: 0.5 + 1.1 * pulse() });
+  if (S.hover != null && S.pending == null && !S.over && !S.thinking && S.turn === S.human && !S.board[S.hover])
+    stone(S.hover, S.human, 0.28);
+  if (S.pending != null) {
+    stone(S.pending, S.turn, 0.55);
+    glowRing(S.pending, '#3ddc84', { w: 0.06 });
+  }
+}
+
+function animating() { return !slowMo && (drop || S.hint != null || S.winLine); }
+
+function frame(now) {
+  clock = now;
+  if (drop && dropK() >= 1) drop = null;
+  draw();
+  raf = animating() ? requestAnimationFrame(frame) : 0;
+}
+
+function kick() { if (!raf) raf = requestAnimationFrame(frame); }
+
+// Threat / forbidden markers only change when the board or the settings do.
+function recomputeMarks() {
+  S.marks = { threats: [], forbidden: [] };
+  if (S.over) return;
+  if (S.showThreats) S.marks.threats = threats(S.board, other(S.human), S.rules);
+  if (S.showForbidden && S.human === BLACK)
+    S.marks.forbidden = candidates(S.board).filter(p => forbidden(S.board, p, S.rules));
+}
+
+
+// --- i18n / ui ---------------------------------------------------------------
+function applyI18n() {
+  document.documentElement.lang = lang === 'zh' ? 'zh-Hant' : 'en';
+  document.title = t('title') + ' · Gomoku';
+  for (const el of document.querySelectorAll('[data-i18n]')) el.textContent = t(el.dataset.i18n);
+  $('#lang').textContent = lang === 'zh' ? 'EN' : '中文';
+  render();
+}
+
+function render() {
+  $('#status').textContent = S.over ? t(S.over) : S.thinking ? t('aiTurn') : t('yourTurn');
+  $('#msg').innerHTML = S.msg;
+  $('#undo').disabled = !S.history.length || S.thinking;
+  $('#hint').disabled = !!S.over || S.thinking || S.turn !== S.human;
+  $('#confirmRow').hidden = S.pending == null;
+  draw();
+  kick();
+}
+
+function say(html) { S.msg = html; render(); }
+
+// --- game flow ---------------------------------------------------------------
+function place(p) {
+  S.hint = S.pending = S.hover = null;
+  S.board[p] = S.turn;
+  S.history.push(p);
+  if (!slowMo) drop = { p, t0: performance.now() };
+  S.winLine = winLine(S.board, p, S.rules);
+  if (S.winLine) S.over = S.turn === S.human ? 'youWin' : 'aiWin';
+  else if (S.history.length === SIZE * SIZE) S.over = 'draw';
+  else S.turn = other(S.turn);
+  recomputeMarks();
+  render();
+  if (!S.over && S.turn !== S.human) aiTurn();
+}
+
+function humanMove(p) {
+  if (S.over || S.thinking || S.turn !== S.human || S.board[p]) return;
+  if (S.human === BLACK) {
+    const f = forbidden(S.board, p, S.rules);
+    if (f) { S.pending = null; say(t('fb_' + f)); return; }
+  }
+  if (S.needConfirm && S.pending !== p) { S.pending = p; S.msg = ''; render(); return; }
+  commit(p);
+}
+
+function commit(p) {
+  const note = S.coach ? coach(S.board, p, S.human, S.rules) : null;
+  place(p);
+  say(note && !S.over ? t(note.key, { p: label(note.at) }) : '');
+}
+
+function aiTurn() {
+  S.thinking = true; render();
+  // ponytail: search runs on the main thread; move to a Worker if the freeze annoys.
+  setTimeout(() => {
+    const p = bestMove(S.board, S.turn, S.rules, S.level);
+    S.thinking = false;
+    if (p == null) { S.over = 'draw'; render(); return; }
+    place(p);
+  }, 30);
+}
+
+function newGame() {
+  S.board = newBoard(); S.history = []; S.turn = BLACK; S.over = null;
+  S.hint = S.pending = S.hover = S.winLine = null; S.msg = '';
+  recomputeMarks();
+  render();
+  if (S.turn !== S.human) aiTurn();
+}
+
+// --- events ------------------------------------------------------------------
+cv.addEventListener('click', e => {
+  const r = cv.getBoundingClientRect();
+  const x = Math.round((e.clientX - r.left - pad) / cell), y = Math.round((e.clientY - r.top - pad) / cell);
+  if (x < 0 || x >= SIZE || y < 0 || y >= SIZE) return;
+  humanMove(idx(x, y));
+});
+
+cv.addEventListener('pointermove', e => {
+  if (e.pointerType === 'touch') return;
+  const r = cv.getBoundingClientRect();
+  const x = Math.round((e.clientX - r.left - pad) / cell), y = Math.round((e.clientY - r.top - pad) / cell);
+  const p = (x >= 0 && x < SIZE && y >= 0 && y < SIZE) ? idx(x, y) : null;
+  if (p !== S.hover) { S.hover = p; draw(); }
+});
+cv.addEventListener('pointerleave', () => { if (S.hover != null) { S.hover = null; draw(); } });
+
+$('#ok').onclick = () => { const p = S.pending; S.pending = null; if (p != null) commit(p); };
+$('#cancel').onclick = () => { S.pending = null; render(); };
+$('#newGame').onclick = newGame;
+$('#undo').onclick = () => {
+  if (S.thinking) return;
+  const n = S.over ? 1 : (S.history.length && S.board[S.history.at(-1)] !== S.human ? 2 : 1);
+  for (let i = 0; i < n && S.history.length; i++) S.board[S.history.pop()] = EMPTY;
+  S.over = null; S.hint = S.pending = S.hover = S.winLine = null; S.msg = '';
+  S.turn = S.history.length ? S.human : BLACK;
+  recomputeMarks();
+  render();
+  if (S.turn !== S.human) aiTurn();
+};
+$('#hint').onclick = () => {
+  if (!legalMoves(S.board, S.human, S.rules).length) return say(t('noMove'));
+  const h = getHint(S.board, S.human, S.rules, S.level === 'easy' ? 'medium' : S.level);
+  if (!h) return;
+  S.hint = h.move;
+  say(t('hintTip', { p: label(h.move), why: t(h.reason) }));
+};
+$('#lang').onclick = () => { lang = lang === 'zh' ? 'en' : 'zh'; save('lang', lang); applyI18n(); };
+
+const bind = (sel, key, get, set) => {
+  const el = $(sel); set(el);
+  el.onchange = () => { get(el); save(key, key === 'rules' ? S.rules : S[key]); recomputeMarks(); render(); };
+};
+bind('#level', 'level', el => S.level = el.value, el => el.value = S.level);
+bind('#side', 'human', el => { S.human = +el.value; save('human', S.human); newGame(); }, el => el.value = S.human);
+for (const k of ['doubleThree', 'doubleFour', 'overline'])
+  bind('#' + k, 'rules', el => S.rules[k] = el.checked, el => el.checked = S.rules[k]);
+for (const k of ['coach', 'showThreats', 'showForbidden', 'needConfirm'])
+  bind('#' + k, k, el => S[k] = el.checked, el => el.checked = S[k]);
+
+addEventListener('resize', resize);
+recomputeMarks();
+applyI18n();
+resize();
+if (S.turn !== S.human) aiTurn();
+</script>
+</body>
+</html>
