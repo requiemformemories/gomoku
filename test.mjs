@@ -1,6 +1,6 @@
 // Self-check for the rules + AI. Run: node test.mjs
 import assert from 'node:assert';
-import { newBoard, idx, BLACK, WHITE, forbidden, isWin, winLine, bestMove, analyzePoint, coach, label } from './engine.js';
+import { newBoard, idx, BLACK, WHITE, forbidden, isWin, winLine, bestMove, analyzePoint, coach, hint, fiveThreats, label } from './engine.js';
 
 const ALL = { doubleThree: true, doubleFour: true, overline: true };
 const FREE = { doubleThree: false, doubleFour: false, overline: false };
@@ -77,6 +77,23 @@ b = put(newBoard(), BLACK, [3, 7], [4, 7], [5, 7], [6, 7]);
 put(b, WHITE, [6, 9], [7, 9], [8, 9]);
 assert.equal(coach(b, idx(14, 14), BLACK, ALL)?.key, 'missWin');
 assert.equal(coach(b, idx(7, 7), BLACK, ALL), null, 'no nagging when you did win');
+
+// a straight four is unanswerable, and the hint must say so instead of naming a futile block
+b = put(newBoard(), WHITE, [6, 7], [7, 7], [8, 7], [9, 7]);
+put(b, BLACK, [3, 3], [4, 4]);
+assert.deepEqual(fiveThreats(b, WHITE, ALL).map(label), ['F8', 'K8']);
+assert.equal(hint(b, BLACK, ALL, 'medium').reason, 'lost');
+
+// a four with one end walled off is still worth blocking
+b = put(newBoard(), WHITE, [6, 7], [7, 7], [8, 7], [9, 7]);
+put(b, BLACK, [5, 7], [3, 3]);
+assert.equal(fiveThreats(b, WHITE, ALL).length, 1);
+assert.equal(hint(b, BLACK, ALL, 'medium').reason, 'blockWin');
+
+// your own five beats their straight four — you move first
+b = put(newBoard(), WHITE, [6, 7], [7, 7], [8, 7], [9, 7]);
+put(b, BLACK, [1, 2], [1, 3], [1, 4], [1, 5]);
+assert.equal(hint(b, BLACK, ALL, 'medium').reason, 'win');
 
 assert.equal(label(idx(7, 7)), 'H8');
 console.log('all ok');

@@ -103,7 +103,8 @@
 
 <script type="module">
 import { SIZE, EMPTY, BLACK, WHITE, newBoard, idx, xy, other, forbidden, winLine,
-         bestMove, hint as getHint, coach, threats, label, legalMoves, candidates } from './engine.js';
+         bestMove, hint as getHint, coach, threats, label, legalMoves, candidates,
+         fiveThreats } from './engine.js';
 
 const I18N = {
   zh: {
@@ -127,6 +128,8 @@ const I18N = {
     makeThree: '形成「活三」開始進攻，兩端都能延伸成活四。',
     blockThree: '對手下這裡會形成「活三」，不擋就會變活四擋不住。',
     develop: '擴展棋形、往中央連結，準備做雙威脅。',
+    lost: '對手已經是活四，兩個成五點都擋不住，這局守不住了。',
+    doomed: '對手形成活四：<b>{a}</b> 和 <b>{b}</b> 都能連五，擋一個還有另一個 — 這局輸了。下次要在他還是<b>活三</b>的時候就擋。',
     missWin: '你剛剛其實可以下 <b>{p}</b> 直接連五獲勝！',
     missBlock: '危險：對手下 <b>{p}</b> 就連五了，這手沒擋住。',
     missOpenThree: '對手已經有活三了：他下 <b>{p}</b> 就成活四，兩邊都擋不住，上一手應該先處理。',
@@ -154,6 +157,8 @@ const I18N = {
     makeThree: 'Makes an open three — it can grow into an unstoppable straight four.',
     blockThree: 'Playing here gives them an open three, which grows into a straight four.',
     develop: 'Extends your shape toward the centre, building toward a double threat.',
+    lost: 'They have a straight four — both completion points cannot be blocked, so this one is lost.',
+    doomed: 'They made a straight four: <b>{a}</b> and <b>{b}</b> both complete five, so blocking one leaves the other. This game is lost — the moment to act was while it was still an <b>open three</b>.',
     missWin: 'You could have played <b>{p}</b> for five in a row!',
     missBlock: 'Danger: <b>{p}</b> now gives them five — that move did not stop it.',
     missOpenThree: 'They already have an open three: <b>{p}</b> turns it into a straight four you cannot block. That needed answering.',
@@ -393,6 +398,10 @@ function place(p) {
   else if (S.history.length === SIZE * SIZE) S.over = 'draw';
   else S.turn = other(S.turn);
   recomputeMarks();
+  if (!S.over && S.turn === S.human) {
+    const lose = fiveThreats(S.board, other(S.human), S.rules);
+    if (lose.length >= 2) S.msg = t('doomed', { a: label(lose[0]), b: label(lose[1]) });
+  }
   render();
   if (!S.over && S.turn !== S.human) aiTurn();
 }
@@ -467,7 +476,7 @@ $('#hint').onclick = () => {
   const h = getHint(S.board, S.human, S.rules, S.level === 'easy' ? 'medium' : S.level);
   if (!h) return;
   S.hint = h.move;
-  say(t('hintTip', { p: label(h.move), why: t(h.reason) }));
+  say(h.reason === 'lost' ? t('lost') : t('hintTip', { p: label(h.move), why: t(h.reason) }));
 };
 $('#lang').onclick = () => { lang = lang === 'zh' ? 'en' : 'zh'; save('lang', lang); applyI18n(); };
 

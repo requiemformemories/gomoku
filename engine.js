@@ -261,13 +261,20 @@ export function bestMove(b, c, rules, level = 'medium') {
   return best;
 }
 
+/** Points where `c` completes five right now. Two or more of them cannot all be blocked. */
+export function fiveThreats(b, c, rules) {
+  return candidates(b).filter(q => analyzePoint(b, q, c, rules).five);
+}
+
 /** Suggested move plus a teaching reason key. */
 export function hint(b, c, rules, level = 'hard') {
   const p = bestMove(b, c, rules, level);
   if (p == null) return null;
   const op = other(c);
   const mine = analyzePoint(b, p, c, rules), theirs = analyzePoint(b, p, op, rules);
+  // you move first, so your own five still wins; otherwise two of theirs is unanswerable
   const reason = mine.five ? 'win'
+    : fiveThreats(b, op, rules).length >= 2 ? 'lost'
     : theirs.five ? 'blockWin'
     : mine.fours ? 'makeFour'
     : theirs.fours ? 'blockFour'
