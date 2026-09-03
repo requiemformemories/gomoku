@@ -1,0 +1,30 @@
+<!doctype html>
+<!-- Builds apple-touch-icon.png (180x180). Full-bleed and square on purpose: iOS applies
+     its own rounding, so a pre-rounded tile would get clipped twice. -->
+<meta charset="utf-8">
+<style>html, body { margin: 0; width: 180px; height: 180px; overflow: hidden; }</style>
+<svg width="180" height="180" viewBox="0 0 180 180" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#3a4757"/>
+      <stop offset=".55" stop-color="#242e3b"/>
+      <stop offset="1" stop-color="#151c25"/>
+    </linearGradient>
+    <radialGradient id="w" cx=".36" cy=".3" r=".82">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset=".45" stop-color="#eef2f7"/>
+      <stop offset="1" stop-color="#a3aebc"/>
+    </radialGradient>
+    <radialGradient id="b" cx=".36" cy=".3" r=".82">
+      <stop offset="0" stop-color="#7b8695"/>
+      <stop offset=".34" stop-color="#2c333e"/>
+      <stop offset="1" stop-color="#05070b"/>
+    </radialGradient>
+  </defs>
+  <rect width="180" height="180" fill="url(#bg)"/>
+  <g stroke="rgba(178,205,240,.2)" stroke-width="2.5" stroke-linecap="round">
+    <path d="M32 58H148M32 90H148M32 122H148M58 32V148M90 32V148M122 32V148"/>
+  </g>
+  <circle cx="63" cy="63" r="33" fill="url(#w)" stroke="rgba(20,28,40,.28)" stroke-width="2"/>
+  <circle cx="118" cy="118" r="33" fill="url(#b)" stroke="rgba(200,222,255,.4)" stroke-width="2"/>
+</svg>

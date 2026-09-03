@@ -36,17 +36,25 @@ settings, viewport and build date, so the exact game can be reopened in one clic
 into GitHub's editor first, where you can read and edit every line before submitting.
 Nothing is collected by the page itself; there is no form and no backend.
 
+## License
+
+MIT — see [LICENSE](LICENSE).
+
 ## Regenerating the preview image
 
 `og.png` is a real screenshot: `tools/og.html` loads the app at a fixed position via a game
-link, takes the board off its canvas and composes the 1200x630 card around it. After a change
-that alters how the board looks, serve the repo and re-shoot it:
+link, takes the board off its canvas and composes the 1200x630 card around it.
+`tools/icon.html` draws the 180x180 iOS home-screen icon. After a change that alters how the
+board looks, serve the repo and re-shoot them:
 
 ```sh
 python3 -m http.server 8000
 "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless=new \
   --hide-scrollbars --force-device-scale-factor=1 --virtual-time-budget=8000 \
   --window-size=1200,630 --screenshot=og.png http://localhost:8000/tools/og.html
+"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless=new \
+  --hide-scrollbars --force-device-scale-factor=1 --virtual-time-budget=2500 \
+  --window-size=180,180 --screenshot=apple-touch-icon.png http://localhost:8000/tools/icon.html
 ```
 
 ## Notes
