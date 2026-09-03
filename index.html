@@ -54,8 +54,10 @@
   .legend { font-size:.8rem; color:var(--dim); }
   footer { display:flex; gap:1rem; justify-content:center; flex-wrap:wrap;
     padding:.4rem 1rem 1.4rem; font-size:.8rem; }
-  footer a { color:var(--dim); text-decoration:none; }
-  footer a:hover { color:var(--fg); text-decoration:underline; }
+  footer a, footer button { color:var(--dim); text-decoration:none; font:inherit;
+    background:none; border:0; box-shadow:none; padding:0; cursor:pointer; }
+  footer a:hover, footer button:hover:not(:disabled) { color:var(--fg); text-decoration:underline; filter:none; }
+  footer button:disabled { opacity:.45; cursor:default; }
   #review { border:1px solid var(--line); border-radius:12px; padding:.6rem .7rem;
     background:rgba(255,255,255,.025); display:flex; flex-direction:column; gap:.15rem; }
   #review h2 { font-size:.95rem; margin:0 0 .2rem; }
@@ -175,6 +177,7 @@
   </aside>
 </main>
 <footer>
+  <button id="copyLink" data-i18n="copyLink"></button>
   <a id="bugLink" target="_blank" rel="noopener" data-i18n="reportBug"></a>
   <a id="ideaLink" target="_blank" rel="noopener" data-i18n="reportIdea"></a>
   <a href="https://github.com/requiemformemories/gomoku" target="_blank" rel="noopener">GitHub</a>
@@ -198,6 +201,7 @@ const I18N = {
     forbiddenOpt: '標示我的禁手點', confirmOpt: '落子需確認（手機建議開）',
     tempoOpt: '每手評先手／後手', numbersOpt: '顯示落子順序（1,2,3…）',
     reportBug: '回報問題', reportIdea: '功能建議',
+    copyLink: '複製對局連結', copied: '已複製 ✓', copyBar: '已放進網址列，請從那裡複製',
     badLink: '網址裡的棋譜讀不出來，已開新局。',
     lookHead: '外觀（棋盤、棋子、特效）', themeLabel: '棋盤', stonesLabel: '棋子', animLabel: '落子特效',
     th_slate: '石板（預設）', th_wood: '經典木紋', th_paper: '棋譜紙',
@@ -257,6 +261,7 @@ const I18N = {
     forbiddenOpt: 'Mark my forbidden points', confirmOpt: 'Confirm before placing (good on phones)',
     tempoOpt: 'Grade every move: initiative or answer', numbersOpt: 'Show move numbers (1,2,3…)',
     reportBug: 'Report a problem', reportIdea: 'Suggest a feature',
+    copyLink: 'Copy game link', copied: 'Copied ✓', copyBar: 'Put it in the address bar — copy from there',
     badLink: 'The game record in the link could not be read; started a new game instead.',
     lookHead: 'Appearance (board, stones, effects)', themeLabel: 'Board', stonesLabel: 'Stones',
     animLabel: 'Placement effect',
@@ -807,6 +812,7 @@ function gameState() {
 
 function render() {
   document.documentElement.style.setProperty('--acc', skin().acc);
+  $('#copyLink').disabled = !S.history.length;
   $('#bugLink').href = `${REPO}/issues/new?template=bug.yml&state=${encodeURIComponent(gameState())}`;
   $('#ideaLink').href = `${REPO}/issues/new?template=feature.yml&build=${encodeURIComponent(build())}`;
   $('#status').textContent = S.over ? t(S.over)
@@ -922,6 +928,17 @@ $('#pbNext').onclick = () => S.view && pbSet(S.view.i + 1);
 $('#pbLast').onclick = () => pbSet(S.history.length);
 $('#pbPlay').onclick = () => (S.view?.playing ? (pbPause(), render()) : pbPlay());
 $('#pbSlider').oninput = e => pbSet(+e.target.value);
+
+// The address bar gets the link too, so a refresh or bookmark keeps the game either way.
+$('#copyLink').onclick = async e => {
+  const btn = e.currentTarget;      // grab it before awaiting: currentTarget is null by then
+  const url = gameUrl();
+  history.replaceState(null, '', url);
+  let key = 'copied';
+  try { await navigator.clipboard.writeText(url); } catch { key = 'copyBar'; }
+  btn.textContent = t(key);
+  setTimeout(() => { btn.textContent = t('copyLink'); }, 1800);
+};
 
 $('#newGame').onclick = newGame;
 // black always opens, so the side to move follows from how many stones are down

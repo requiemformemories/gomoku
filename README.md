@@ -26,7 +26,8 @@ rules as on/off flags, and which side you played. Plain coordinates rather than 
 a full 225-move game is under 900 characters, the record stays readable in a bug report and
 editable by hand, and old links keep working because the notation cannot drift. Rules from a
 link apply to that visit only and never overwrite your saved settings; a record that does not
-parse is rejected whole.
+parse is rejected whole. **Copy game link** in the footer puts that URL on the clipboard and
+in the address bar, so a refresh or a bookmark keeps the game even if the clipboard is denied.
 
 ## Reporting
 
