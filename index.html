@@ -158,8 +158,22 @@
 <header>
   <h1>
     <svg class="mark" viewBox="0 0 32 32" aria-hidden="true" focusable="false">
-      <circle cx="11.8" cy="11.8" r="8.4" fill="#eef2f7"/>
-      <circle cx="20.2" cy="20.2" r="8.4" fill="#12171e" stroke="rgba(206,226,255,.65)" stroke-width="1.5"/>
+      <defs>
+        <radialGradient id="mkW" cx=".36" cy=".3" r=".85">
+          <stop offset="0" stop-color="#ffffff" stop-opacity=".97"/>
+          <stop offset=".55" stop-color="#e8eef6" stop-opacity=".88"/>
+          <stop offset="1" stop-color="#adbaca" stop-opacity=".7"/>
+        </radialGradient>
+        <radialGradient id="mkB" cx=".36" cy=".3" r=".85">
+          <stop offset="0" stop-color="#8d9aab" stop-opacity=".8"/>
+          <stop offset=".42" stop-color="#2a323d" stop-opacity=".74"/>
+          <stop offset="1" stop-color="#070a0f" stop-opacity=".6"/>
+        </radialGradient>
+      </defs>
+      <circle cx="11.8" cy="11.8" r="8.4" fill="url(#mkW)" stroke="rgba(255,255,255,.55)" stroke-width=".8"/>
+      <circle cx="20.2" cy="20.2" r="8.4" fill="url(#mkB)" stroke="rgba(206,226,255,.7)" stroke-width="1.4"/>
+      <ellipse cx="8.9" cy="8.5" rx="2.8" ry="1.7" transform="rotate(-32 8.9 8.5)" fill="#fff" opacity=".6"/>
+      <ellipse cx="17.3" cy="16.9" rx="2.5" ry="1.5" transform="rotate(-32 17.3 16.9)" fill="#fff" opacity=".32"/>
     </svg>
     <span data-i18n="title"></span>
   </h1>
