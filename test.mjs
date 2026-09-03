@@ -1,7 +1,7 @@
 // Self-check for the rules + AI. Run: node test.mjs
 import assert from 'node:assert';
 import { newBoard, idx, SIZE, BLACK, WHITE, forbidden, isWin, winLine, bestMove, analyzePoint, coach,
-         hint, fiveThreats, tempo, review, label } from './engine.js';
+         hint, fiveThreats, tempo, review, label, parsePoints } from './engine.js';
 
 const ALL = { doubleThree: true, doubleFour: true, overline: true };
 const FREE = { doubleThree: false, doubleFour: false, overline: false };
@@ -139,6 +139,19 @@ const byMove = Object.fromEntries(
 assert.equal(byMove.I10, 'missOpenThree', 'blocking a foul point while a three grows is the mistake');
 assert.ok(!('H11' in byMove), 'the futile block is not blamed: ' + JSON.stringify(byMove));
 assert.ok(!('D8' in byMove), 'denying an open-three point is not "did nothing": ' + JSON.stringify(byMove));
+
+// game records come from URLs, so the parser has to reject anything it does not like
+assert.deepEqual(parsePoints('H8,G7 I7').map(label), ['H8', 'G7', 'I7'], 'commas or spaces');
+assert.deepEqual(parsePoints('a1,o15').map(label), ['A1', 'O15'], 'lower case and both corners');
+assert.deepEqual(parsePoints(' H8 ').map(label), ['H8']);
+assert.deepEqual(parsePoints('H8,,G7').map(label), ['H8', 'G7'], 'lenient about separators');
+for (const bad of ['', '   ', 'P8', 'H0', 'H16', 'H', '8H', 'H8,H8', 'H8;G7',
+                   'H8,G7,X', '<script>', null, undefined, 42])
+  assert.equal(parsePoints(bad), null, `should reject ${JSON.stringify(bad)}`);
+assert.equal(parsePoints(Array.from({ length: 226 }, () => 'H8').join(',')), null, 'too long');
+// a record round-trips through the notation the whole app already uses
+const rt = [idx(7, 7), idx(0, 14), idx(14, 0)];
+assert.deepEqual(parsePoints(rt.map(label).join(',')), rt);
 
 assert.equal(label(idx(7, 7)), 'H8');
 console.log('all ok');

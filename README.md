@@ -19,11 +19,20 @@ python3 -m http.server 8000   # ES modules need http://, file:// won't load
 
 GitHub Pages serves `main` at the repo root — `git push` is the whole deploy step.
 
+## Sharing a game
+
+A game is a URL: `?g=H8,G9,I9&r=111&s=b` — the moves in play order, the three forbidden
+rules as on/off flags, and which side you played. Plain coordinates rather than an encoding:
+a full 225-move game is under 900 characters, the record stays readable in a bug report and
+editable by hand, and old links keep working because the notation cannot drift. Rules from a
+link apply to that visit only and never overwrite your saved settings; a record that does not
+parse is rejected whole.
+
 ## Reporting
 
-The footer links open a prefilled GitHub issue. The bug link carries the move list,
-settings, viewport and build date so the exact game can be replayed — it goes into
-GitHub's editor first, where you can read and edit every line before submitting.
+The footer links open a prefilled GitHub issue. The bug link carries that replay URL plus
+settings, viewport and build date, so the exact game can be reopened in one click — it goes
+into GitHub's editor first, where you can read and edit every line before submitting.
 Nothing is collected by the page itself; there is no form and no backend.
 
 ## Notes

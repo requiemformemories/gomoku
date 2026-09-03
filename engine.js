@@ -418,4 +418,24 @@ export function review(moves, rules, human, level = 'medium') {
   return { best, worst, moves: graded.length };
 }
 
+/** Parse "H8,G7 I7" into points. Returns null if anything is off — this reads
+ *  untrusted input (a shared URL), so a malformed record must not half-load. */
+export function parsePoints(text) {
+  if (typeof text !== 'string') return null;
+  const parts = text.trim().split(/[\s,]+/).filter(Boolean);
+  if (!parts.length || parts.length > SIZE * SIZE) return null;
+  const out = [], seen = new Set();
+  for (const tok of parts) {
+    const m = /^([A-Oa-o])([0-9]{1,2})$/.exec(tok);
+    if (!m) return null;
+    const x = 'ABCDEFGHIJKLMNO'.indexOf(m[1].toUpperCase()), row = +m[2];
+    if (x < 0 || row < 1 || row > SIZE) return null;
+    const p = idx(x, SIZE - row);
+    if (seen.has(p)) return null;              // a point can only be played once
+    seen.add(p);
+    out.push(p);
+  }
+  return out;
+}
+
 export const label = p => 'ABCDEFGHIJKLMNO'[p % SIZE] + (SIZE - (p - p % SIZE) / SIZE);

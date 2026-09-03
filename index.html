@@ -183,7 +183,7 @@
 <script type="module">
 import { SIZE, EMPTY, BLACK, WHITE, newBoard, idx, xy, other, forbidden, winLine,
          bestMove, hint as getHint, coach, threats, label, legalMoves, candidates,
-         fiveThreats, tempo, review } from './engine.js';
+         fiveThreats, tempo, review, parsePoints, winLine as lineThrough } from './engine.js';
 
 const I18N = {
   zh: {
@@ -198,6 +198,7 @@ const I18N = {
     forbiddenOpt: '標示我的禁手點', confirmOpt: '落子需確認（手機建議開）',
     tempoOpt: '每手評先手／後手', numbersOpt: '顯示落子順序（1,2,3…）',
     reportBug: '回報問題', reportIdea: '功能建議',
+    badLink: '網址裡的棋譜讀不出來，已開新局。',
     lookHead: '外觀（棋盤、棋子、特效）', themeLabel: '棋盤', stonesLabel: '棋子', animLabel: '落子特效',
     th_slate: '石板（預設）', th_wood: '經典木紋', th_paper: '棋譜紙',
     th_neon: '霓虹', th_mono: '極簡黑白',
@@ -227,7 +228,7 @@ const I18N = {
     rv_missBlock: '沒擋住對手的四', rv_missOpenThree: '放過對手的活三',
     confirmMove: '確認落子', cancel: '取消',
     legend: '紅圈＝對手可成四／五　橘圈＝對手活三　紅✕＝黑棋禁手　綠圈＝提示',
-    yourTurn: '你的回合', aiTurn: 'AI 思考中…',
+    yourTurn: '你的回合', aiTurn: 'AI 思考中…', aiToMove: 'AI 的回合',
     youWin: '你贏了 🎉', aiWin: 'AI 贏了', draw: '和局',
     hintTip: '建議下 <b>{p}</b>：{why}',
     win: '直接連五獲勝。', blockWin: '對手下一手就連五，必須先擋。',
@@ -256,6 +257,7 @@ const I18N = {
     forbiddenOpt: 'Mark my forbidden points', confirmOpt: 'Confirm before placing (good on phones)',
     tempoOpt: 'Grade every move: initiative or answer', numbersOpt: 'Show move numbers (1,2,3…)',
     reportBug: 'Report a problem', reportIdea: 'Suggest a feature',
+    badLink: 'The game record in the link could not be read; started a new game instead.',
     lookHead: 'Appearance (board, stones, effects)', themeLabel: 'Board', stonesLabel: 'Stones',
     animLabel: 'Placement effect',
     th_slate: 'Slate (default)', th_wood: 'Classic wood', th_paper: 'Kifu paper',
@@ -286,7 +288,7 @@ const I18N = {
     rv_missBlock: 'Left their four unblocked', rv_missOpenThree: 'Let their open three stand',
     confirmMove: 'Place stone', cancel: 'Cancel',
     legend: 'Red ring = opponent four/five · Orange = open three · Red ✕ = forbidden for black · Green = hint',
-    yourTurn: 'Your turn', aiTurn: 'AI thinking…',
+    yourTurn: 'Your turn', aiTurn: 'AI thinking…', aiToMove: "AI's turn",
     youWin: 'You win 🎉', aiWin: 'AI wins', draw: 'Draw',
     hintTip: 'Play <b>{p}</b>: {why}',
     win: 'Completes five in a row.', blockWin: 'They make five next move — block it now.',
@@ -755,6 +757,39 @@ function renderReview() {
 }
 
 const REPO = 'https://github.com/requiemformemories/gomoku';
+
+// A game as a link. Plain coordinates, not an encoding: short enough already, readable in a
+// bug report, hand-editable, and it can never fall out of sync with a second notation.
+function gameUrl() {
+  const r = [S.rules.doubleThree, S.rules.doubleFour, S.rules.overline].map(v => (v ? 1 : 0)).join('');
+  return `${location.origin}${location.pathname}?g=${S.history.map(label).join(',')}`
+       + `&r=${r}&s=${S.human === BLACK ? 'b' : 'w'}`;
+}
+
+/** Restore a game from ?g=…&r=…&s=… — returns false if there was nothing usable to load. */
+function loadFromUrl() {
+  const q = new URLSearchParams(location.search);
+  if (!q.has('g')) return false;
+  const moves = parsePoints(q.get('g'));
+  if (!moves) { S.msg = t('badLink'); return false; }
+
+  const r = q.get('r'), side = q.get('s');
+  // applied for this visit only: a shared link must not rewrite your saved settings
+  if (/^[01]{3}$/.test(r || '')) S.rules = { doubleThree: r[0] === '1', doubleFour: r[1] === '1', overline: r[2] === '1' };
+  if (side === 'b') S.human = BLACK;
+  else if (side === 'w') S.human = WHITE;
+
+  S.board = newBoard();
+  S.history = moves.slice();
+  moves.forEach((p, i) => { S.board[p] = i % 2 ? WHITE : BLACK; });
+  const last = S.history.at(-1);
+  S.winLine = lineThrough(S.board, last, S.rules);
+  if (S.winLine) S.over = S.board[last] === S.human ? 'youWin' : 'aiWin';
+  S.turn = S.history.length % 2 ? WHITE : BLACK;
+  if (S.over) S.review = review(S.history, S.rules, S.human, 'medium');
+  S.view = { i: S.history.length, at: null };   // land on the final position, controls ready
+  return true;
+}
 const build = () => document.lastModified;   // the deployed file's date — no build step to stamp one
 
 // Everything needed to replay the game, and nothing else. The user sees it in GitHub's
@@ -762,7 +797,7 @@ const build = () => document.lastModified;   // the deployed file's date — no 
 function gameState() {
   const R = S.rules, on = v => (v ? 'on' : 'off');
   return [
-    `moves: ${S.history.map(label).join(' ') || '(none yet)'}`,
+    `replay: ${gameUrl()}`,
     `you: ${S.human === BLACK ? 'black' : 'white'} · level: ${S.level} · result: ${S.over || 'in progress'}`,
     `rules: 3-3 ${on(R.doubleThree)}, 4-4 ${on(R.doubleFour)}, overline ${on(R.overline)}`,
     `view: ${innerWidth}x${innerHeight} · lang: ${lang} · build: ${build()}`,
@@ -774,7 +809,9 @@ function render() {
   document.documentElement.style.setProperty('--acc', skin().acc);
   $('#bugLink').href = `${REPO}/issues/new?template=bug.yml&state=${encodeURIComponent(gameState())}`;
   $('#ideaLink').href = `${REPO}/issues/new?template=feature.yml&build=${encodeURIComponent(build())}`;
-  $('#status').textContent = S.over ? t(S.over) : S.thinking ? t('aiTurn') : t('yourTurn');
+  $('#status').textContent = S.over ? t(S.over)
+    : S.thinking ? t('aiTurn')
+    : S.turn === S.human ? t('yourTurn') : t('aiToMove');
   $('#msg').innerHTML = S.msg;
   $('#undo').disabled = !S.history.length || S.thinking;
   $('#hint').disabled = !!S.over || S.thinking || S.turn !== S.human;
@@ -841,6 +878,7 @@ function aiTurn() {
 }
 
 function newGame() {
+  if (location.search) history.replaceState(null, '', location.pathname);
   S.board = newBoard(); S.history = []; S.turn = BLACK; S.over = null;
   S.hint = S.pending = S.hover = S.winLine = S.review = null; S.msg = '';
   pbClear();
@@ -909,6 +947,8 @@ $('#hint').onclick = () => {
 };
 $('#lang').onclick = () => { lang = lang === 'zh' ? 'en' : 'zh'; save('lang', lang); applyI18n(); };
 
+const linked = loadFromUrl();   // before the controls are filled in, so they show the link's rules
+
 const bind = (sel, key, get, set) => {
   const el = $(sel); set(el);
   el.onchange = () => { get(el); save(key, key === 'rules' ? S.rules : S[key]); recomputeMarks(); render(); };
@@ -927,7 +967,7 @@ addEventListener('resize', resize);
 recomputeMarks();
 applyI18n();
 resize();
-if (S.turn !== S.human) aiTurn();
+if (!linked && S.turn !== S.human) aiTurn();
 </script>
 </body>
 </html>
