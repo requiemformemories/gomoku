@@ -110,6 +110,7 @@
       <label><input type="checkbox" id="showThreats"><span data-i18n="threatsOpt"></span></label>
       <label><input type="checkbox" id="showForbidden"><span data-i18n="forbiddenOpt"></span></label>
       <label><input type="checkbox" id="tempo"><span data-i18n="tempoOpt"></span></label>
+      <label><input type="checkbox" id="showNumbers"><span data-i18n="numbersOpt"></span></label>
       <label><input type="checkbox" id="needConfirm"><span data-i18n="confirmOpt"></span></label>
       <p class="legend" data-i18n="legend"></p>
     </details>
@@ -132,7 +133,7 @@ const I18N = {
     learnHead: '學習輔助',
     coachOpt: '教練提醒（下錯時告訴我）', threatsOpt: '標示對手威脅點',
     forbiddenOpt: '標示我的禁手點', confirmOpt: '落子需確認（手機建議開）',
-    tempoOpt: '每手評先手／後手',
+    tempoOpt: '每手評先手／後手', numbersOpt: '顯示落子順序（1,2,3…）',
     tempo_attack: '<b>先手</b>：這手做出威脅，對手非應不可。',
     tempo_defend: '<b>後手</b>：必要的防守，擋掉了對手的威脅。',
     tempo_idle: '<b>後手</b>：沒做威脅，對手也沒逼你 — 這一手本來可以拿去做活三。',
@@ -175,7 +176,7 @@ const I18N = {
     learnHead: 'Learning aids',
     coachOpt: 'Coach (tell me when I slip)', threatsOpt: 'Mark opponent threats',
     forbiddenOpt: 'Mark my forbidden points', confirmOpt: 'Confirm before placing (good on phones)',
-    tempoOpt: 'Grade every move: initiative or answer',
+    tempoOpt: 'Grade every move: initiative or answer', numbersOpt: 'Show move numbers (1,2,3…)',
     tempo_attack: '<b>Initiative</b>: this makes a threat they have to answer.',
     tempo_defend: '<b>Answer</b>: a defence you had to play.',
     tempo_idle: '<b>Slow</b>: no threat made, and none forced on you — this move could have attacked.',
@@ -221,6 +222,7 @@ const S = {
   human: load('human', BLACK), level: load('level', 'medium'),
   rules: load('rules', { doubleThree: true, doubleFour: true, overline: true }),
   coach: load('coach', true), showThreats: load('showThreats', false), tempo: load('tempo', true),
+  showNumbers: load('showNumbers', false),
   showForbidden: load('showForbidden', true),
   needConfirm: load('needConfirm', matchMedia('(pointer: coarse)').matches),
   hint: null, pending: null, msg: '', hover: null,
@@ -285,6 +287,18 @@ function stone(p, c, alpha = 1, scale = 1) {
   ctx.stroke();
   ctx.fillStyle = c === BLACK ? 'rgba(255,255,255,.26)' : 'rgba(255,255,255,.9)';
   ctx.beginPath(); ctx.ellipse(cx - r * 0.3, cy - r * 0.36, r * 0.3, r * 0.17, -0.5, 0, 7); ctx.fill();
+  ctx.restore();
+}
+
+function moveNo(p, c, n) {
+  if (!n) return;
+  const [cx, cy] = at(p);
+  ctx.save();
+  ctx.fillStyle = c === BLACK ? 'rgba(238,245,255,.95)' : 'rgba(16,24,36,.92)';
+  ctx.font = `700 ${Math.max(7, cell * (n > 99 ? 0.31 : 0.4))}px system-ui`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(n, cx, cy);
   ctx.restore();
 }
 
@@ -353,11 +367,13 @@ function draw() {
   drawBoard(w);
 
   const bd = S.replay ? S.replay.board : S.board;
+  const order = S.showNumbers ? new Map(S.history.map((q, i) => [q, i + 1])) : null;
   const k = dropK();
   for (let p = 0; p < bd.length; p++) {
     if (!bd[p]) continue;
     const growing = !S.replay && drop && drop.p === p;
     stone(p, bd[p], growing ? Math.min(1, k * 2) : 1, growing ? pop(k) : 1);
+    if (order && !growing) moveNo(p, bd[p], order.get(p));
   }
   if (S.replay) {                        // reviewing one move: what you played vs what beat it
     glowRing(S.replay.p, 'rgba(255,86,86,.95)', { w: 0.09 });
@@ -366,7 +382,7 @@ function draw() {
   }
 
   const last = S.history.at(-1);
-  if (last != null && !S.winLine) {
+  if (last != null && !S.winLine && !S.showNumbers) {   // the number already says which was last
     const [cx, cy] = at(last);
     ctx.fillStyle = S.board[last] === BLACK ? 'rgba(230,240,255,.85)' : 'rgba(30,40,55,.8)';
     ctx.beginPath(); ctx.arc(cx, cy, cell * 0.09, 0, 7); ctx.fill();
@@ -546,12 +562,15 @@ $('#review').addEventListener('click', e => {
 });
 
 $('#newGame').onclick = newGame;
+// black always opens, so the side to move follows from how many stones are down
+const sideToMove = () => (S.history.length % 2 ? WHITE : BLACK);
+
 $('#undo').onclick = () => {
-  if (S.thinking) return;
-  const n = S.over ? 1 : (S.history.length && S.board[S.history.at(-1)] !== S.human ? 2 : 1);
-  for (let i = 0; i < n && S.history.length; i++) S.board[S.history.pop()] = EMPTY;
+  if (S.thinking || !S.history.length) return;
+  do { S.board[S.history.pop()] = EMPTY; }        // take back at least one...
+  while (S.history.length && sideToMove() !== S.human);   // ...then back to your turn
   S.over = null; S.hint = S.pending = S.hover = S.winLine = S.review = S.replay = null; S.msg = '';
-  S.turn = S.history.length ? S.human : BLACK;
+  S.turn = sideToMove();
   recomputeMarks();
   render();
   if (S.turn !== S.human) aiTurn();
@@ -573,7 +592,7 @@ bind('#level', 'level', el => S.level = el.value, el => el.value = S.level);
 bind('#side', 'human', el => { S.human = +el.value; save('human', S.human); newGame(); }, el => el.value = S.human);
 for (const k of ['doubleThree', 'doubleFour', 'overline'])
   bind('#' + k, 'rules', el => S.rules[k] = el.checked, el => el.checked = S.rules[k]);
-for (const k of ['coach', 'showThreats', 'showForbidden', 'needConfirm', 'tempo'])
+for (const k of ['coach', 'showThreats', 'showForbidden', 'needConfirm', 'tempo', 'showNumbers'])
   bind('#' + k, k, el => S[k] = el.checked, el => el.checked = S[k]);
 
 addEventListener('resize', resize);

@@ -26,5 +26,6 @@ GitHub Pages serves `main` at the repo root — `git push` is the whole deploy s
 * With all three forbidden rules on, black loses its usual winning weapons (3-3 and 4-4),
   so evenly-matched play often draws. Turn them off for free-style gomoku.
 * Learning aids: per-move initiative/answer grading, an emergency-only coach, opponent
-  threat marks, forbidden-point marks, and a post-game review of your three best and
-  three weakest moves — tap one to replay that position with the better point marked.
+  threat marks, forbidden-point marks, move numbers, and a post-game review of your three
+  best and three weakest moves — tap one to replay that position with the better point marked.
+* Undo always takes you back to your own turn, so you replay the move you got wrong.
