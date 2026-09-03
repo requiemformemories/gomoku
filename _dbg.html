@@ -1,0 +1,28 @@
+<!doctype html><meta charset=utf-8>
+<div id="stage" style="position:absolute;left:-9999px"></div>
+<script>
+const wait=ms=>new Promise(r=>setTimeout(r,ms));
+(async()=>{
+  const log=[];
+  localStorage.clear();
+  localStorage.setItem('gk.level','"medium"');
+  localStorage.setItem('gk.stones','"jade"');
+  localStorage.setItem('gk.showForbidden','false');
+  const f=document.createElement('iframe');
+  f.width=700; f.height=880; f.style.border=0; f.src='./index.html?'+Math.random();
+  document.getElementById('stage').appendChild(f);
+  await new Promise(r=>f.addEventListener('load',r));
+  await wait(300);
+  const w=f.contentWindow, d=f.contentDocument, cv=d.querySelector('#board');
+  const r=cv.getBoundingClientRect(), cell=r.width/16, pad=cell;
+  log.push('rect '+JSON.stringify({l:Math.round(r.left),t:Math.round(r.top),w:Math.round(r.width)}));
+  log.push('needConfirm='+d.querySelector('#needConfirm').checked+' coarse='+w.matchMedia('(pointer: coarse)').matches);
+  log.push('status before: '+d.querySelector('#status').textContent.trim());
+  cv.dispatchEvent(new w.MouseEvent('click',{clientX:r.left+pad+7*cell,clientY:r.top+pad+7*cell,bubbles:true}));
+  await wait(500);
+  log.push('status after: '+d.querySelector('#status').textContent.trim());
+  log.push('confirmRow hidden: '+d.querySelector('#confirmRow').hidden);
+  log.push('undo disabled: '+d.querySelector('#undo').disabled);
+  document.body.setAttribute('data-diag', JSON.stringify(log));
+})();
+</script>
