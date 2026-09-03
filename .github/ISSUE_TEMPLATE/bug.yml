@@ -1,0 +1,31 @@
+name: 錯誤回報 / Bug report
+description: 哪裡怪怪的？ / Something looks wrong
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        「對局資料」那格是從遊戲自動帶入的 —— 有它才能把同一盤棋原樣重下一遍，請盡量保留。
+        裡面只有棋譜、設定、視窗大小和瀏覽器字串；**送出前你可以自由刪改任何一行**。
+
+        The game state below is filled in automatically so the exact game can be replayed.
+        It contains only moves, settings, viewport and user agent — edit or delete anything before submitting.
+  - type: textarea
+    id: what
+    attributes:
+      label: 發生什麼事 / What happened
+      placeholder: 例：提示叫我擋 H6，可是對手是活四，擋哪邊都輸。
+    validations:
+      required: true
+  - type: textarea
+    id: expect
+    attributes:
+      label: 你預期應該怎樣 / What you expected
+  - type: textarea
+    id: state
+    attributes:
+      label: 對局資料 / Game state
+      render: text
+  - type: markdown
+    attributes:
+      value: 有截圖的話直接拖進來最有幫助（開「顯示落子順序」再截更好）。/ A screenshot helps — turn on move numbers first.

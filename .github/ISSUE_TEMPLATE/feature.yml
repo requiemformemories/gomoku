@@ -1,0 +1,19 @@
+name: 功能建議 / Feature idea
+description: 想要它多做什麼？ / Something you wish it did
+labels: [enhancement]
+body:
+  - type: textarea
+    id: idea
+    attributes:
+      label: 你想要什麼 / What would you like
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: 為什麼會需要 / Why it would help
+      placeholder: 你當時在練什麼、卡在哪裡 —— 這比功能本身更有用。
+  - type: input
+    id: build
+    attributes:
+      label: 版本 / Build

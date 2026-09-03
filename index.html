@@ -52,6 +52,10 @@
   details.sub > summary { font-size:.92rem; color:var(--dim); }
   details.sub[open] > summary { color:var(--fg); margin-bottom:.2rem; }
   .legend { font-size:.8rem; color:var(--dim); }
+  footer { display:flex; gap:1rem; justify-content:center; flex-wrap:wrap;
+    padding:.4rem 1rem 1.4rem; font-size:.8rem; }
+  footer a { color:var(--dim); text-decoration:none; }
+  footer a:hover { color:var(--fg); text-decoration:underline; }
   #review { border:1px solid var(--line); border-radius:12px; padding:.6rem .7rem;
     background:rgba(255,255,255,.025); display:flex; flex-direction:column; gap:.15rem; }
   #review h2 { font-size:.95rem; margin:0 0 .2rem; }
@@ -170,6 +174,11 @@
     </details>
   </aside>
 </main>
+<footer>
+  <a id="bugLink" target="_blank" rel="noopener" data-i18n="reportBug"></a>
+  <a id="ideaLink" target="_blank" rel="noopener" data-i18n="reportIdea"></a>
+  <a href="https://github.com/requiemformemories/gomoku" target="_blank" rel="noopener">GitHub</a>
+</footer>
 
 <script type="module">
 import { SIZE, EMPTY, BLACK, WHITE, newBoard, idx, xy, other, forbidden, winLine,
@@ -188,6 +197,7 @@ const I18N = {
     coachOpt: '教練提醒（下錯時告訴我）', threatsOpt: '標示對手威脅點',
     forbiddenOpt: '標示我的禁手點', confirmOpt: '落子需確認（手機建議開）',
     tempoOpt: '每手評先手／後手', numbersOpt: '顯示落子順序（1,2,3…）',
+    reportBug: '回報問題', reportIdea: '功能建議',
     lookHead: '外觀（棋盤、棋子、特效）', themeLabel: '棋盤', stonesLabel: '棋子', animLabel: '落子特效',
     th_slate: '石板（預設）', th_wood: '經典木紋', th_paper: '棋譜紙',
     th_neon: '霓虹', th_mono: '極簡黑白',
@@ -245,6 +255,7 @@ const I18N = {
     coachOpt: 'Coach (tell me when I slip)', threatsOpt: 'Mark opponent threats',
     forbiddenOpt: 'Mark my forbidden points', confirmOpt: 'Confirm before placing (good on phones)',
     tempoOpt: 'Grade every move: initiative or answer', numbersOpt: 'Show move numbers (1,2,3…)',
+    reportBug: 'Report a problem', reportIdea: 'Suggest a feature',
     lookHead: 'Appearance (board, stones, effects)', themeLabel: 'Board', stonesLabel: 'Stones',
     animLabel: 'Placement effect',
     th_slate: 'Slate (default)', th_wood: 'Classic wood', th_paper: 'Kifu paper',
@@ -743,8 +754,26 @@ function renderReview() {
     <p class="rvNote">${t('reviewTap')}</p>`;
 }
 
+const REPO = 'https://github.com/requiemformemories/gomoku';
+const build = () => document.lastModified;   // the deployed file's date — no build step to stamp one
+
+// Everything needed to replay the game, and nothing else. The user sees it in GitHub's
+// editor and can delete any of it before submitting; we never hold a copy.
+function gameState() {
+  const R = S.rules, on = v => (v ? 'on' : 'off');
+  return [
+    `moves: ${S.history.map(label).join(' ') || '(none yet)'}`,
+    `you: ${S.human === BLACK ? 'black' : 'white'} · level: ${S.level} · result: ${S.over || 'in progress'}`,
+    `rules: 3-3 ${on(R.doubleThree)}, 4-4 ${on(R.doubleFour)}, overline ${on(R.overline)}`,
+    `view: ${innerWidth}x${innerHeight} · lang: ${lang} · build: ${build()}`,
+    `ua: ${navigator.userAgent}`,
+  ].join('\n');
+}
+
 function render() {
   document.documentElement.style.setProperty('--acc', skin().acc);
+  $('#bugLink').href = `${REPO}/issues/new?template=bug.yml&state=${encodeURIComponent(gameState())}`;
+  $('#ideaLink').href = `${REPO}/issues/new?template=feature.yml&build=${encodeURIComponent(build())}`;
   $('#status').textContent = S.over ? t(S.over) : S.thinking ? t('aiTurn') : t('yourTurn');
   $('#msg').innerHTML = S.msg;
   $('#undo').disabled = !S.history.length || S.thinking;

@@ -19,6 +19,13 @@ python3 -m http.server 8000   # ES modules need http://, file:// won't load
 
 GitHub Pages serves `main` at the repo root — `git push` is the whole deploy step.
 
+## Reporting
+
+The footer links open a prefilled GitHub issue. The bug link carries the move list,
+settings, viewport and build date so the exact game can be replayed — it goes into
+GitHub's editor first, where you can read and edit every line before submitting.
+Nothing is collected by the page itself; there is no form and no backend.
+
 ## Notes
 
 * Difficulty: Beginner (no search) → Normal (2 ply) → Hard (4 ply) → Expert (up to 8 ply,
