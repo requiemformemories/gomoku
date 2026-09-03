@@ -35,8 +35,10 @@
     box-shadow:0 1px 0 rgba(255,255,255,.05) inset, 0 2px 6px rgba(0,0,0,.3); transition:filter .12s; }
   button:hover:not(:disabled) { filter:brightness(1.18); }
   button:active { filter:brightness(.92); }
-  button.primary { background:linear-gradient(#6fb8f0, #3d8fd0); color:#0b1118; border-color:transparent;
-    font-weight:600; box-shadow:0 2px 14px rgba(90,169,230,.4); }
+  button.primary { color:#0b1118; border-color:transparent; font-weight:600;
+    background:var(--acc);   /* plain accent first, so the gradient below can fail safely */
+    background:linear-gradient(color-mix(in srgb, var(--acc) 86%, white), var(--acc));
+    box-shadow:0 2px 14px color-mix(in srgb, var(--acc) 40%, transparent); }
   button:disabled { opacity:.45; cursor:default; }
   .row > button { flex:1 1 auto; }
   details { border:1px solid var(--line); border-radius:12px; padding:.5rem .7rem;
@@ -132,6 +134,18 @@
       <label><input type="checkbox" id="showNumbers"><span data-i18n="numbersOpt"></span></label>
       <label><input type="checkbox" id="needConfirm"><span data-i18n="confirmOpt"></span></label>
       <p class="legend" data-i18n="legend"></p>
+      <div class="hr"></div>
+      <strong data-i18n="lookHead"></strong>
+      <label><span data-i18n="themeLabel"></span>
+        <select id="theme">
+          <option value="slate" data-i18n="th_slate"></option>
+          <option value="wood" data-i18n="th_wood"></option>
+          <option value="paper" data-i18n="th_paper"></option>
+          <option value="neon" data-i18n="th_neon"></option>
+          <option value="mono" data-i18n="th_mono"></option>
+        </select>
+      </label>
+      <label><input type="checkbox" id="anim"><span data-i18n="animOpt"></span></label>
     </details>
   </aside>
 </main>
@@ -153,6 +167,9 @@ const I18N = {
     coachOpt: '教練提醒（下錯時告訴我）', threatsOpt: '標示對手威脅點',
     forbiddenOpt: '標示我的禁手點', confirmOpt: '落子需確認（手機建議開）',
     tempoOpt: '每手評先手／後手', numbersOpt: '顯示落子順序（1,2,3…）',
+    lookHead: '外觀', themeLabel: '主題', animOpt: '落子動畫（棋子彈入）',
+    th_slate: '石板（預設）', th_wood: '經典木紋', th_paper: '棋譜紙',
+    th_neon: '霓虹', th_mono: '極簡黑白',
     tempo_attack: '<b>先手</b>：這手做出威脅，對手非應不可。',
     tempo_defend: '<b>後手</b>：必要的防守，擋掉了對手的威脅。',
     tempo_prevent: '<b>後手</b>：擋掉對手的活三發展點，有用，但還是沒做出自己的威脅。',
@@ -203,6 +220,9 @@ const I18N = {
     coachOpt: 'Coach (tell me when I slip)', threatsOpt: 'Mark opponent threats',
     forbiddenOpt: 'Mark my forbidden points', confirmOpt: 'Confirm before placing (good on phones)',
     tempoOpt: 'Grade every move: initiative or answer', numbersOpt: 'Show move numbers (1,2,3…)',
+    lookHead: 'Appearance', themeLabel: 'Board', animOpt: 'Stone drop animation',
+    th_slate: 'Slate (default)', th_wood: 'Classic wood', th_paper: 'Kifu paper',
+    th_neon: 'Neon', th_mono: 'Minimal mono',
     tempo_attack: '<b>Initiative</b>: this makes a threat they have to answer.',
     tempo_defend: '<b>Answer</b>: a defence you had to play.',
     tempo_prevent: '<b>Slow</b>: you took away an open-three point of theirs — useful, but still no threat of your own.',
@@ -244,6 +264,61 @@ const I18N = {
   },
 };
 
+// Board skins. Everything the canvas paints comes from here; markers (hint green, threat
+// red/orange, forbidden cross) stay constant across skins so the legend keeps meaning.
+const THEMES = {
+  slate: {
+    acc: '#5aa9e6', board: ['#35414f', '#242e3b', '#171e28'],
+    sheen: 'rgba(140,190,255,.11)', edge: 'rgba(255,255,255,.11)',
+    grid: 'rgba(178,205,240,.17)', star: 'rgba(160,200,245,.4)',
+    text: 'rgba(206,222,242,.45)', shadow: 'rgba(0,0,0,.6)',
+    black: { fill: ['#75808f', '#2c333e', '#06080c'], rim: 'rgba(190,215,255,.20)',
+             spec: 'rgba(255,255,255,.26)', ink: 'rgba(238,245,255,.95)' },
+    white: { fill: ['#ffffff', '#eef2f7', '#a8b3c0'], rim: 'rgba(25,35,50,.22)',
+             spec: 'rgba(255,255,255,.9)', ink: 'rgba(16,24,36,.92)' },
+  },
+  wood: {
+    acc: '#d09346', board: ['#e6bc7c', '#d4a15d', '#b8823f'],
+    sheen: 'rgba(255,242,214,.18)', edge: 'rgba(92,62,26,.5)',
+    grid: 'rgba(85,58,25,.55)', star: 'rgba(70,46,18,.8)',
+    text: 'rgba(72,48,18,.75)', shadow: 'rgba(60,35,10,.45)',
+    black: { fill: ['#5a5f66', '#22262c', '#0a0c10'], rim: 'rgba(255,255,255,.14)',
+             spec: 'rgba(255,255,255,.3)', ink: 'rgba(255,250,240,.95)' },
+    white: { fill: ['#ffffff', '#f6f2e8', '#cfc6b4'], rim: 'rgba(90,70,40,.28)',
+             spec: 'rgba(255,255,255,.95)', ink: 'rgba(50,38,20,.9)' },
+  },
+  paper: {
+    acc: '#4a7fb5', board: ['#f8f5ee', '#f1ede2', '#e6e0d2'],
+    sheen: 'rgba(255,255,255,.5)', edge: 'rgba(120,110,95,.35)',
+    grid: 'rgba(70,66,58,.42)', star: 'rgba(60,56,48,.7)',
+    text: 'rgba(80,74,64,.7)', shadow: 'rgba(90,80,60,.28)',
+    black: { fill: ['#4a4f57', '#1b1f25', '#0b0e12'], rim: 'rgba(255,255,255,.12)',
+             spec: 'rgba(255,255,255,.22)', ink: 'rgba(250,250,248,.95)' },
+    white: { fill: ['#ffffff', '#fbfaf6', '#dcd7cb'], rim: 'rgba(60,56,48,.45)',
+             spec: 'rgba(255,255,255,.9)', ink: 'rgba(40,38,32,.9)' },
+  },
+  neon: {
+    acc: '#22e6c8', board: ['#0e1822', '#0a1018', '#05080c'],
+    sheen: 'rgba(0,255,220,.07)', edge: 'rgba(0,255,220,.28)',
+    grid: 'rgba(0,240,210,.2)', star: 'rgba(0,255,220,.55)',
+    text: 'rgba(120,255,235,.5)', shadow: 'rgba(0,0,0,.75)',
+    black: { fill: ['#2a4a55', '#0e1a20', '#02060a'], rim: 'rgba(0,255,220,.55)',
+             spec: 'rgba(120,255,235,.35)', ink: 'rgba(150,255,240,.95)' },
+    white: { fill: ['#ffffff', '#e6fbff', '#8fd8e8'], rim: 'rgba(0,120,140,.4)',
+             spec: 'rgba(255,255,255,.95)', ink: 'rgba(6,20,26,.92)' },
+  },
+  mono: {
+    acc: '#c4c4c4', board: ['#2c2c2c', '#262626', '#1f1f1f'],
+    sheen: 'rgba(255,255,255,.04)', edge: 'rgba(255,255,255,.14)',
+    grid: 'rgba(255,255,255,.18)', star: 'rgba(255,255,255,.32)',
+    text: 'rgba(255,255,255,.4)', shadow: 'rgba(0,0,0,.5)',
+    black: { fill: ['#3a3a3a', '#141414', '#050505'], rim: 'rgba(255,255,255,.22)',
+             spec: 'rgba(255,255,255,.12)', ink: 'rgba(245,245,245,.95)' },
+    white: { fill: ['#fafafa', '#f0f0f0', '#cfcfcf'], rim: 'rgba(0,0,0,.25)',
+             spec: 'rgba(255,255,255,.5)', ink: 'rgba(20,20,20,.9)' },
+  },
+};
+
 const load = (k, d) => { try { const v = localStorage.getItem('gk.' + k); return v === null ? d : JSON.parse(v); } catch { return d; } };
 const save = (k, v) => { try { localStorage.setItem('gk.' + k, JSON.stringify(v)); } catch {} };
 
@@ -255,7 +330,8 @@ const S = {
   human: load('human', BLACK), level: load('level', 'medium'),
   rules: load('rules', { doubleThree: true, doubleFour: true, overline: true }),
   coach: load('coach', true), showThreats: load('showThreats', false), tempo: load('tempo', true),
-  showNumbers: load('showNumbers', false),
+  showNumbers: load('showNumbers', true),
+  theme: load('theme', 'slate'), anim: load('anim', false),
   showForbidden: load('showForbidden', true),
   needConfirm: load('needConfirm', matchMedia('(pointer: coarse)').matches),
   hint: null, pending: null, msg: '', hover: null,
@@ -270,6 +346,8 @@ const cv = $('#board'), ctx = cv.getContext('2d');
 // --- rendering ---------------------------------------------------------------
 let cell = 0, pad = 0, clock = 0, raf = 0, drop = null;
 const slowMo = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const skin = () => THEMES[S.theme] || THEMES.slate;
+const canAnimate = () => S.anim && !slowMo;
 const DROP_MS = 220;
 
 function resize() {
@@ -302,24 +380,23 @@ const dropK = () => drop ? Math.min(1, (performance.now() - drop.t0) / DROP_MS) 
 function stone(p, c, alpha = 1, scale = 1) {
   const [cx, cy] = at(p), r = cell * 0.45 * scale;
   if (r <= 0) return;
+  const T = skin(), s = c === BLACK ? T.black : T.white;
   ctx.save();
   ctx.globalAlpha = alpha;
-  ctx.shadowColor = 'rgba(0,0,0,.6)';
+  ctx.shadowColor = T.shadow;
   ctx.shadowBlur = r * 0.7;
   ctx.shadowOffsetY = r * 0.22;
   const g = ctx.createRadialGradient(cx - r * 0.34, cy - r * 0.42, r * 0.05, cx, cy, r * 1.08);
-  if (c === BLACK) {
-    g.addColorStop(0, '#75808f'); g.addColorStop(.32, '#2c333e'); g.addColorStop(1, '#06080c');
-  } else {
-    g.addColorStop(0, '#ffffff'); g.addColorStop(.42, '#eef2f7'); g.addColorStop(1, '#a8b3c0');
-  }
+  g.addColorStop(0, s.fill[0]);
+  g.addColorStop(c === BLACK ? .32 : .42, s.fill[1]);
+  g.addColorStop(1, s.fill[2]);
   ctx.fillStyle = g;
   ctx.beginPath(); ctx.arc(cx, cy, r, 0, 7); ctx.fill();
   ctx.shadowBlur = ctx.shadowOffsetY = 0;
-  ctx.strokeStyle = c === BLACK ? 'rgba(190,215,255,.20)' : 'rgba(25,35,50,.22)';
+  ctx.strokeStyle = s.rim;
   ctx.lineWidth = Math.max(1, r * 0.07);
   ctx.stroke();
-  ctx.fillStyle = c === BLACK ? 'rgba(255,255,255,.26)' : 'rgba(255,255,255,.9)';
+  ctx.fillStyle = s.spec;
   ctx.beginPath(); ctx.ellipse(cx - r * 0.3, cy - r * 0.36, r * 0.3, r * 0.17, -0.5, 0, 7); ctx.fill();
   ctx.restore();
 }
@@ -335,7 +412,7 @@ function moveNo(p, c, n) {
   if (!n) return;
   const [cx, cy] = at(p);
   ctx.save();
-  ctx.fillStyle = c === BLACK ? 'rgba(238,245,255,.95)' : 'rgba(16,24,36,.92)';
+  ctx.fillStyle = (c === BLACK ? skin().black : skin().white).ink;
   ctx.font = `700 ${Math.max(7, cell * (n > 99 ? 0.31 : 0.4))}px system-ui`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
@@ -367,18 +444,19 @@ function cross(p, color) {
 }
 
 function drawBoard(w) {
+  const T = skin();
   ctx.clearRect(0, 0, w, w);
   roundRect(0.5, 0.5, w - 1, w - 1, w * 0.035);
   const g = ctx.createLinearGradient(0, 0, w * 0.7, w);
-  g.addColorStop(0, '#35414f'); g.addColorStop(.5, '#242e3b'); g.addColorStop(1, '#171e28');
+  g.addColorStop(0, T.board[0]); g.addColorStop(.5, T.board[1]); g.addColorStop(1, T.board[2]);
   ctx.fillStyle = g; ctx.fill();
   const sheen = ctx.createRadialGradient(w * 0.22, w * 0.1, 0, w * 0.22, w * 0.1, w * 0.85);
-  sheen.addColorStop(0, 'rgba(140,190,255,.11)'); sheen.addColorStop(1, 'rgba(140,190,255,0)');
+  sheen.addColorStop(0, T.sheen); sheen.addColorStop(1, 'transparent');
   ctx.fillStyle = sheen; ctx.fill();
-  ctx.strokeStyle = 'rgba(255,255,255,.11)'; ctx.lineWidth = 1; ctx.stroke();
+  ctx.strokeStyle = T.edge; ctx.lineWidth = 1; ctx.stroke();
 
   const last = pad + (SIZE - 1) * cell;
-  ctx.strokeStyle = 'rgba(178,205,240,.17)';
+  ctx.strokeStyle = T.grid;
   ctx.lineWidth = Math.max(1, cell * 0.022);
   ctx.beginPath();
   for (let i = 0; i < SIZE; i++) {
@@ -388,12 +466,12 @@ function drawBoard(w) {
   }
   ctx.stroke();
 
-  ctx.fillStyle = 'rgba(160,200,245,.4)';
+  ctx.fillStyle = T.star;
   for (const [x, y] of [[3, 3], [11, 3], [3, 11], [11, 11], [7, 7]]) {
     ctx.beginPath(); ctx.arc(pad + x * cell, pad + y * cell, cell * 0.09, 0, 7); ctx.fill();
   }
 
-  ctx.fillStyle = 'rgba(206,222,242,.45)';
+  ctx.fillStyle = T.text;
   ctx.font = `600 ${Math.max(8, cell * 0.34)}px system-ui`;
   ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
   for (let i = 0; i < SIZE; i++) {
@@ -426,7 +504,7 @@ function draw() {
   const last = S.history.at(-1);
   if (last != null && !S.winLine && !S.showNumbers) {   // the number already says which was last
     const [cx, cy] = at(last);
-    ctx.fillStyle = S.board[last] === BLACK ? 'rgba(230,240,255,.85)' : 'rgba(30,40,55,.8)';
+    ctx.fillStyle = (S.board[last] === BLACK ? skin().black : skin().white).ink;
     ctx.beginPath(); ctx.arc(cx, cy, cell * 0.09, 0, 7); ctx.fill();
   }
 
@@ -502,7 +580,7 @@ function pbTick() {
   if (!S.view?.playing) return;
   S.view.i++;
   S.view.at = null;
-  if (!slowMo) drop = { p: S.history[S.view.i - 1], t0: performance.now() };
+  if (canAnimate()) drop = { p: S.history[S.view.i - 1], t0: performance.now() };
   if (S.view.i >= S.history.length) S.view.playing = false;   // stop on the last move, not after it
   render();
   if (S.view.playing) pbTimer = setTimeout(pbTick, STEP_MS);
@@ -553,6 +631,7 @@ function renderReview() {
 }
 
 function render() {
+  document.documentElement.style.setProperty('--acc', skin().acc);
   $('#status').textContent = S.over ? t(S.over) : S.thinking ? t('aiTurn') : t('yourTurn');
   $('#msg').innerHTML = S.msg;
   $('#undo').disabled = !S.history.length || S.thinking;
@@ -571,7 +650,7 @@ function place(p) {
   S.hint = S.pending = S.hover = null;
   S.board[p] = S.turn;
   S.history.push(p);
-  if (!slowMo) drop = { p, t0: performance.now() };
+  if (canAnimate()) drop = { p, t0: performance.now() };
   S.winLine = winLine(S.board, p, S.rules);
   if (S.winLine) S.over = S.turn === S.human ? 'youWin' : 'aiWin';
   else if (S.history.length === SIZE * SIZE) S.over = 'draw';
@@ -693,10 +772,11 @@ const bind = (sel, key, get, set) => {
   el.onchange = () => { get(el); save(key, key === 'rules' ? S.rules : S[key]); recomputeMarks(); render(); };
 };
 bind('#level', 'level', el => S.level = el.value, el => el.value = S.level);
+bind('#theme', 'theme', el => S.theme = el.value, el => el.value = S.theme);
 bind('#side', 'human', el => { S.human = +el.value; save('human', S.human); newGame(); }, el => el.value = S.human);
 for (const k of ['doubleThree', 'doubleFour', 'overline'])
   bind('#' + k, 'rules', el => S.rules[k] = el.checked, el => el.checked = S.rules[k]);
-for (const k of ['coach', 'showThreats', 'showForbidden', 'needConfirm', 'tempo', 'showNumbers'])
+for (const k of ['coach', 'showThreats', 'showForbidden', 'needConfirm', 'tempo', 'showNumbers', 'anim'])
   bind('#' + k, k, el => S[k] = el.checked, el => el.checked = S[k]);
 
 addEventListener('resize', resize);

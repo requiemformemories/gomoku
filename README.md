@@ -32,3 +32,5 @@ GitHub Pages serves `main` at the repo root — `git push` is the whole deploy s
   transport controls (or the slider) hand it back to you. Review rows jump the replay to that
   move and mark the point that would have been better.
 * Undo always takes you back to your own turn, so you replay the move you got wrong.
+* Five board skins (slate, wood, kifu paper, neon, mono) and an optional stone-drop
+  animation. Every setting persists in localStorage.
