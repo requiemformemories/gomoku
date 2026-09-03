@@ -60,6 +60,13 @@
   button.rv .bad .pt, .bad { color:#ff7a7a; }
   button.rv i { font-style:normal; color:var(--acc); }
   .rvNote { font-size:.78rem; color:var(--dim); margin:.35rem 0 0; }
+  #playback { border:1px solid var(--line); border-radius:12px; padding:.6rem .7rem;
+    background:rgba(255,255,255,.025); }
+  #playback h2 { font-size:.95rem; margin:0 0 .45rem; }
+  .pbBtns { display:flex; gap:.4rem; }
+  .pbBtns button { flex:1 1 auto; padding:.45rem .3rem; }
+  .pbBtns #pbPlay { flex:2 1 auto; }
+  #pbSlider { width:100%; margin:.6rem 0 0; accent-color:var(--acc); }
 </style>
 </head>
 <body>
@@ -81,6 +88,18 @@
       <button id="ok" class="primary" data-i18n="confirmMove"></button>
       <button id="cancel" data-i18n="cancel"></button>
     </div>
+    <section id="playback" hidden>
+      <h2 data-i18n="pbHead"></h2>
+      <div class="pbBtns">
+        <button id="pbFirst" aria-label="first">&#9198;</button>
+        <button id="pbPrev" aria-label="previous">&#9194;</button>
+        <button id="pbPlay" class="primary"></button>
+        <button id="pbNext" aria-label="next">&#9193;</button>
+        <button id="pbLast" aria-label="last">&#9197;</button>
+      </div>
+      <input type="range" id="pbSlider" min="0" max="0" value="0">
+      <p class="rvNote" id="pbAt"></p>
+    </section>
     <section id="review" hidden></section>
     <details open>
       <summary data-i18n="settings"></summary>
@@ -142,8 +161,10 @@ const I18N = {
     tooLate: '對手已經是<b>活四</b>，這手擋不住 — 勝負在更早就決定了。',
     reviewHead: '賽後回顧', reviewBest: '表現最好', reviewWorst: '可以更好',
     reviewNone: '這局沒有做出威脅的手。', reviewClean: '這局沒有明顯失誤 👍',
-    reviewBetter: '更好：{p}', reviewTap: '點任一手看當時的盤面（紅＝你下的，綠＝更好的點）',
-    reviewBack: '回到終局',
+    reviewBetter: '更好：{p}', reviewTap: '點任一手可以跳到當時的盤面（紅＝你下的，綠＝更好的點）',
+    pbHead: '棋譜回放', pbPlay: '▶ 播放', pbPause: '⏸ 暫停',
+    pbAt: '第 {i} / {n} 手 · {who} {p}', pbStart: '開局（尚未落子）',
+    pbBlack: '黑', pbWhite: '白',
     rv_win: '連五獲勝', rv_double: '雙威脅，對手擋不完',
     rv_counterKill: '擋下威脅同時做出雙威脅', rv_three: '做出活三',
     rv_blockAndThree: '擋下威脅同時做出活三', rv_four: '做出四，搶到先手',
@@ -190,8 +211,10 @@ const I18N = {
     tooLate: 'They already had a <b>straight four</b> — no block works here. This was decided earlier.',
     reviewHead: 'Game review', reviewBest: 'Best moves', reviewWorst: 'Weakest moves',
     reviewNone: 'No threatening moves this game.', reviewClean: 'No clear mistakes 👍',
-    reviewBetter: 'Better: {p}', reviewTap: 'Tap a move to see that position (red = yours, green = better)',
-    reviewBack: 'Back to the final position',
+    reviewBetter: 'Better: {p}', reviewTap: 'Tap a move to jump to that position (red = yours, green = better)',
+    pbHead: 'Replay', pbPlay: '▶ Play', pbPause: '⏸ Pause',
+    pbAt: 'Move {i} of {n} · {who} {p}', pbStart: 'Start position',
+    pbBlack: 'Black', pbWhite: 'White',
     rv_win: 'Completed five', rv_double: 'Double threat — unanswerable',
     rv_counterKill: 'Blocked and built a double threat', rv_three: 'Made an open three',
     rv_blockAndThree: 'Blocked and made an open three', rv_four: 'Made a four, kept the initiative',
@@ -237,7 +260,8 @@ const S = {
   needConfirm: load('needConfirm', matchMedia('(pointer: coarse)').matches),
   hint: null, pending: null, msg: '', hover: null,
   winLine: null, marks: { threats: [], forbidden: [] },
-  review: null, replay: null,
+  review: null,
+  view: null,        // { i: plies shown, playing, at: point to suggest } — the replay viewer
 };
 
 const $ = s => document.querySelector(s);
@@ -298,6 +322,13 @@ function stone(p, c, alpha = 1, scale = 1) {
   ctx.fillStyle = c === BLACK ? 'rgba(255,255,255,.26)' : 'rgba(255,255,255,.9)';
   ctx.beginPath(); ctx.ellipse(cx - r * 0.3, cy - r * 0.36, r * 0.3, r * 0.17, -0.5, 0, 7); ctx.fill();
   ctx.restore();
+}
+
+// the position after the first `S.view.i` plies — black opens, so parity gives the colour
+function viewBoard() {
+  const b = newBoard();
+  for (let k = 0; k < S.view.i; k++) b[S.history[k]] = k % 2 ? WHITE : BLACK;
+  return b;
 }
 
 function moveNo(p, c, n) {
@@ -376,18 +407,19 @@ function draw() {
   if (!w) return;
   drawBoard(w);
 
-  const bd = S.replay ? S.replay.board : S.board;
+  const bd = S.view ? viewBoard() : S.board;
   const order = S.showNumbers ? new Map(S.history.map((q, i) => [q, i + 1])) : null;
   const k = dropK();
   for (let p = 0; p < bd.length; p++) {
     if (!bd[p]) continue;
-    const growing = !S.replay && drop && drop.p === p;
+    const growing = drop && drop.p === p;
     stone(p, bd[p], growing ? Math.min(1, k * 2) : 1, growing ? pop(k) : 1);
     if (order && !growing) moveNo(p, bd[p], order.get(p));
   }
-  if (S.replay) {                        // reviewing one move: what you played vs what beat it
-    glowRing(S.replay.p, 'rgba(255,86,86,.95)', { w: 0.09 });
-    if (S.replay.at != null) glowRing(S.replay.at, '#3ddc84', { w: 0.09 });
+  if (viewingPast()) {                   // mid-replay: ring the move shown, and a better one
+    const shown = S.history[S.view.i - 1];
+    if (shown != null) glowRing(shown, S.view.at != null ? 'rgba(255,86,86,.95)' : '#8ab4f8', { w: 0.09 });
+    if (S.view.at != null) glowRing(S.view.at, '#3ddc84', { w: 0.09 });
     return;
   }
 
@@ -421,7 +453,10 @@ function draw() {
   }
 }
 
-function animating() { return !slowMo && !S.replay && (drop || S.hint != null || S.winLine); }
+const viewingPast = () => !!S.view && S.view.i < S.history.length;
+function animating() {
+  return !slowMo && (!!drop || (!viewingPast() && (S.hint != null || S.winLine)));
+}
 
 function frame(now) {
   clock = now;
@@ -451,11 +486,60 @@ function applyI18n() {
   render();
 }
 
+const STEP_MS = 650;
+let pbTimer = 0;
+
+function pbSet(i, keepPlaying = false) {
+  if (!S.history.length) return;
+  if (!keepPlaying) pbPause();
+  S.view = { i: Math.max(0, Math.min(S.history.length, i)), at: null };
+  render();
+}
+
+function pbPause() { clearTimeout(pbTimer); pbTimer = 0; if (S.view) S.view.playing = false; }
+
+function pbTick() {
+  if (!S.view?.playing) return;
+  S.view.i++;
+  S.view.at = null;
+  if (!slowMo) drop = { p: S.history[S.view.i - 1], t0: performance.now() };
+  if (S.view.i >= S.history.length) S.view.playing = false;   // stop on the last move, not after it
+  render();
+  if (S.view.playing) pbTimer = setTimeout(pbTick, STEP_MS);
+}
+
+function pbPlay() {
+  if (!S.history.length) return;
+  if (!S.view || S.view.i >= S.history.length) S.view = { i: 0, at: null };
+  S.view.playing = true;
+  render();
+  pbTimer = setTimeout(pbTick, STEP_MS);
+}
+
+function pbClear() { pbPause(); S.view = null; }
+
+function renderPlayback() {
+  const el = $('#playback');
+  el.hidden = !S.view;
+  if (!S.view) return;
+  const n = S.history.length, i = S.view.i;
+  $('#pbPlay').textContent = t(S.view.playing ? 'pbPause' : 'pbPlay');
+  $('#pbPrev').disabled = i === 0;
+  $('#pbFirst').disabled = i === 0;
+  $('#pbNext').disabled = i >= n;
+  $('#pbLast').disabled = i >= n;
+  const sl = $('#pbSlider');
+  sl.max = n;
+  sl.value = i;
+  $('#pbAt').textContent = i === 0 ? t('pbStart')
+    : t('pbAt', { i, n, who: t((i - 1) % 2 ? 'pbWhite' : 'pbBlack'), p: label(S.history[i - 1]) });
+}
+
 function renderReview() {
   const el = $('#review');
   el.hidden = !S.review;
   if (!S.review) { el.innerHTML = ''; return; }
-  const row = (m, good) => `<button class="rv ${good ? 'good' : 'bad'}" data-p="${m.p}">
+  const row = (m, good) => `<button class="rv ${good ? 'good' : 'bad'}" data-ply="${m.ply}">
       <b>#${m.n}</b><span class="pt">${label(m.p)}</span>
       <span>${t('rv_' + m.key)}${!good && m.at != null ? ` <i>${t('reviewBetter', { p: label(m.at) })}</i>` : ''}</span>
     </button>`;
@@ -465,8 +549,7 @@ function renderReview() {
     ${best.length ? best.map(m => row(m, true)).join('') : `<p class="rvNote">${t('reviewNone')}</p>`}
     <h3>${t('reviewWorst')}</h3>
     ${worst.length ? worst.map(m => row(m, false)).join('') : `<p class="rvNote">${t('reviewClean')}</p>`}
-    ${S.replay ? `<button id="rvBack">${t('reviewBack')}</button>`
-               : `<p class="rvNote">${t('reviewTap')}</p>`}`;
+    <p class="rvNote">${t('reviewTap')}</p>`;
 }
 
 function render() {
@@ -475,6 +558,7 @@ function render() {
   $('#undo').disabled = !S.history.length || S.thinking;
   $('#hint').disabled = !!S.over || S.thinking || S.turn !== S.human;
   $('#confirmRow').hidden = S.pending == null;
+  renderPlayback();
   renderReview();
   draw();
   kick();
@@ -493,7 +577,10 @@ function place(p) {
   else if (S.history.length === SIZE * SIZE) S.over = 'draw';
   else S.turn = other(S.turn);
   recomputeMarks();
-  if (S.over) S.review = review(S.history, S.rules, S.human, 'medium');
+  if (S.over) {
+    S.review = review(S.history, S.rules, S.human, 'medium');
+    pbPlay();                            // the board becomes a replay of the game just played
+  }
   if (!S.over && S.turn === S.human) {
     const lose = fiveThreats(S.board, other(S.human), S.rules);
     if (lose.length >= 2) S.msg = t('doomed', { a: label(lose[0]), b: label(lose[1]) });
@@ -534,7 +621,8 @@ function aiTurn() {
 
 function newGame() {
   S.board = newBoard(); S.history = []; S.turn = BLACK; S.over = null;
-  S.hint = S.pending = S.hover = S.winLine = S.review = S.replay = null; S.msg = '';
+  S.hint = S.pending = S.hover = S.winLine = S.review = null; S.msg = '';
+  pbClear();
   recomputeMarks();
   render();
   if (S.turn !== S.human) aiTurn();
@@ -560,16 +648,21 @@ cv.addEventListener('pointerleave', () => { if (S.hover != null) { S.hover = nul
 $('#ok').onclick = () => { const p = S.pending; S.pending = null; if (p != null) commit(p); };
 $('#cancel').onclick = () => { S.pending = null; render(); };
 $('#review').addEventListener('click', e => {
-  const btn = e.target.closest('button');
+  const btn = e.target.closest('button[data-ply]');
   if (!btn || !S.review) return;
-  if (btn.id === 'rvBack') { S.replay = null; render(); return; }
-  const m = [...S.review.best, ...S.review.worst].find(x => x.p === +btn.dataset.p);
+  const m = [...S.review.best, ...S.review.worst].find(x => x.ply === +btn.dataset.ply);
   if (!m) return;
-  const board = m.board.slice();
-  board[m.p] = S.human;
-  S.replay = { board, p: m.p, at: m.score < 0 ? m.at : null };
+  pbSet(m.ply);
+  S.view.at = m.score < 0 ? m.at : null;
   render();
 });
+
+$('#pbFirst').onclick = () => pbSet(0);
+$('#pbPrev').onclick = () => S.view && pbSet(S.view.i - 1);
+$('#pbNext').onclick = () => S.view && pbSet(S.view.i + 1);
+$('#pbLast').onclick = () => pbSet(S.history.length);
+$('#pbPlay').onclick = () => (S.view?.playing ? (pbPause(), render()) : pbPlay());
+$('#pbSlider').oninput = e => pbSet(+e.target.value);
 
 $('#newGame').onclick = newGame;
 // black always opens, so the side to move follows from how many stones are down
@@ -579,7 +672,8 @@ $('#undo').onclick = () => {
   if (S.thinking || !S.history.length) return;
   do { S.board[S.history.pop()] = EMPTY; }        // take back at least one...
   while (S.history.length && sideToMove() !== S.human);   // ...then back to your turn
-  S.over = null; S.hint = S.pending = S.hover = S.winLine = S.review = S.replay = null; S.msg = '';
+  S.over = null; S.hint = S.pending = S.hover = S.winLine = S.review = null; S.msg = '';
+  pbClear();
   S.turn = sideToMove();
   recomputeMarks();
   render();

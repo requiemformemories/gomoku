@@ -27,5 +27,8 @@ GitHub Pages serves `main` at the repo root — `git push` is the whole deploy s
   so evenly-matched play often draws. Turn them off for free-style gomoku.
 * Learning aids: per-move initiative/answer grading, an emergency-only coach, opponent
   threat marks, forbidden-point marks, move numbers, and a post-game review of your three
-  best and three weakest moves — tap one to replay that position with the better point marked.
+  best and three weakest moves.
+* When a game ends the board becomes a replay: it plays through the game on its own, and the
+  transport controls (or the slider) hand it back to you. Review rows jump the replay to that
+  move and mark the point that would have been better.
 * Undo always takes you back to your own turn, so you replay the move you got wrong.

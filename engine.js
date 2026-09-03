@@ -396,7 +396,7 @@ export function review(moves, rules, human, level = 'medium') {
   const graded = [];
   moves.forEach((p, i) => {
     const c = i % 2 ? WHITE : BLACK;
-    if (c === human) graded.push({ n: graded.length + 1, p, board: b.slice(), ...judge(b, p, c, rules) });
+    if (c === human) graded.push({ n: graded.length + 1, ply: i + 1, p, board: b.slice(), ...judge(b, p, c, rules) });
     b[p] = c;
   });
   const ranked = [...graded].sort((x, y) => y.score - x.score);
