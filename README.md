@@ -36,6 +36,19 @@ settings, viewport and build date, so the exact game can be reopened in one clic
 into GitHub's editor first, where you can read and edit every line before submitting.
 Nothing is collected by the page itself; there is no form and no backend.
 
+## Regenerating the preview image
+
+`og.png` is a real screenshot: `tools/og.html` loads the app at a fixed position via a game
+link, takes the board off its canvas and composes the 1200x630 card around it. After a change
+that alters how the board looks, serve the repo and re-shoot it:
+
+```sh
+python3 -m http.server 8000
+"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless=new \
+  --hide-scrollbars --force-device-scale-factor=1 --virtual-time-budget=8000 \
+  --window-size=1200,630 --screenshot=og.png http://localhost:8000/tools/og.html
+```
+
 ## Notes
 
 * Difficulty: Beginner (no search) → Normal (2 ply) → Hard (4 ply) → Expert (up to 8 ply,
