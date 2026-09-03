@@ -88,7 +88,9 @@
       var(--bg);
     background-attachment: fixed; }
   header { display:flex; align-items:center; gap:.6rem; padding:.7rem 1rem; border-bottom:1px solid var(--line); }
-  h1 { font-size:1.05rem; margin:0; font-weight:600; flex:1; min-width:0; }
+  h1 { font-size:1.05rem; margin:0; font-weight:600; flex:1; min-width:0;
+    display:flex; align-items:center; gap:.5rem; }
+  .mark { width:1.9em; height:1.9em; flex:none; }
   main { display:grid; grid-template-columns:1fr; gap:1rem; padding:.75rem; justify-items:center; }
   #boardWrap { width:min(100%, 62vh); aspect-ratio:1; touch-action:manipulation; }
   canvas { width:100%; height:100%; display:block;
@@ -154,7 +156,13 @@
 </head>
 <body>
 <header>
-  <h1 data-i18n="title"></h1>
+  <h1>
+    <svg class="mark" viewBox="0 0 32 32" aria-hidden="true" focusable="false">
+      <circle cx="11.8" cy="11.8" r="8.4" fill="#eef2f7"/>
+      <circle cx="20.2" cy="20.2" r="8.4" fill="#12171e" stroke="rgba(206,226,255,.65)" stroke-width="1.5"/>
+    </svg>
+    <span data-i18n="title"></span>
+  </h1>
   <button id="lang">EN</button>
 </header>
 <main>
