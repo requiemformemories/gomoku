@@ -48,6 +48,9 @@
   label input { width:1.05rem; height:1.05rem; accent-color:var(--acc); }
   label select { flex:1; padding:.35rem .5rem; }
   .hr { border-top:1px solid var(--line); margin:.6rem -.7rem; }
+  details.sub { border:0; padding:0; background:none; backdrop-filter:none; }
+  details.sub > summary { font-size:.92rem; color:var(--dim); }
+  details.sub[open] > summary { color:var(--fg); margin-bottom:.2rem; }
   .legend { font-size:.8rem; color:var(--dim); }
   #review { border:1px solid var(--line); border-radius:12px; padding:.6rem .7rem;
     background:rgba(255,255,255,.025); display:flex; flex-direction:column; gap:.15rem; }
@@ -135,17 +138,35 @@
       <label><input type="checkbox" id="needConfirm"><span data-i18n="confirmOpt"></span></label>
       <p class="legend" data-i18n="legend"></p>
       <div class="hr"></div>
-      <strong data-i18n="lookHead"></strong>
-      <label><span data-i18n="themeLabel"></span>
-        <select id="theme">
-          <option value="slate" data-i18n="th_slate"></option>
-          <option value="wood" data-i18n="th_wood"></option>
-          <option value="paper" data-i18n="th_paper"></option>
-          <option value="neon" data-i18n="th_neon"></option>
-          <option value="mono" data-i18n="th_mono"></option>
-        </select>
-      </label>
-      <label><input type="checkbox" id="anim"><span data-i18n="animOpt"></span></label>
+      <details class="sub">
+        <summary data-i18n="lookHead"></summary>
+        <label><span data-i18n="themeLabel"></span>
+          <select id="theme">
+            <option value="slate" data-i18n="th_slate"></option>
+            <option value="wood" data-i18n="th_wood"></option>
+            <option value="paper" data-i18n="th_paper"></option>
+            <option value="neon" data-i18n="th_neon"></option>
+            <option value="mono" data-i18n="th_mono"></option>
+          </select>
+        </label>
+        <label><span data-i18n="stonesLabel"></span>
+          <select id="stones">
+            <option value="classic" data-i18n="st_classic"></option>
+            <option value="neon" data-i18n="st_neon"></option>
+            <option value="jade" data-i18n="st_jade"></option>
+            <option value="sunset" data-i18n="st_sunset"></option>
+          </select>
+        </label>
+        <label><span data-i18n="animLabel"></span>
+          <select id="anim">
+            <option value="off" data-i18n="fx_off"></option>
+            <option value="pop" data-i18n="fx_pop"></option>
+            <option value="ripple" data-i18n="fx_ripple"></option>
+            <option value="sparkle" data-i18n="fx_sparkle"></option>
+            <option value="rainbow" data-i18n="fx_rainbow"></option>
+          </select>
+        </label>
+      </details>
     </details>
   </aside>
 </main>
@@ -167,9 +188,13 @@ const I18N = {
     coachOpt: '教練提醒（下錯時告訴我）', threatsOpt: '標示對手威脅點',
     forbiddenOpt: '標示我的禁手點', confirmOpt: '落子需確認（手機建議開）',
     tempoOpt: '每手評先手／後手', numbersOpt: '顯示落子順序（1,2,3…）',
-    lookHead: '外觀', themeLabel: '主題', animOpt: '落子動畫（棋子彈入）',
+    lookHead: '外觀（棋盤、棋子、特效）', themeLabel: '棋盤', stonesLabel: '棋子', animLabel: '落子特效',
     th_slate: '石板（預設）', th_wood: '經典木紋', th_paper: '棋譜紙',
     th_neon: '霓虹', th_mono: '極簡黑白',
+    st_classic: '黑白（預設）', st_neon: '霓虹（青／洋紅）', st_jade: '玉石（墨綠／象牙）',
+    st_sunset: '夕陽（紫／琥珀）',
+    fx_off: '關閉（預設）', fx_pop: '彈入', fx_ripple: '光環擴散',
+    fx_sparkle: '冒星星 ✨', fx_rainbow: '彩虹圈 🌈',
     tempo_attack: '<b>先手</b>：這手做出威脅，對手非應不可。',
     tempo_defend: '<b>後手</b>：必要的防守，擋掉了對手的威脅。',
     tempo_prevent: '<b>後手</b>：擋掉對手的活三發展點，有用，但還是沒做出自己的威脅。',
@@ -220,9 +245,14 @@ const I18N = {
     coachOpt: 'Coach (tell me when I slip)', threatsOpt: 'Mark opponent threats',
     forbiddenOpt: 'Mark my forbidden points', confirmOpt: 'Confirm before placing (good on phones)',
     tempoOpt: 'Grade every move: initiative or answer', numbersOpt: 'Show move numbers (1,2,3…)',
-    lookHead: 'Appearance', themeLabel: 'Board', animOpt: 'Stone drop animation',
+    lookHead: 'Appearance (board, stones, effects)', themeLabel: 'Board', stonesLabel: 'Stones',
+    animLabel: 'Placement effect',
     th_slate: 'Slate (default)', th_wood: 'Classic wood', th_paper: 'Kifu paper',
     th_neon: 'Neon', th_mono: 'Minimal mono',
+    st_classic: 'Classic (default)', st_neon: 'Neon (cyan / magenta)',
+    st_jade: 'Jade (green / ivory)', st_sunset: 'Sunset (violet / amber)',
+    fx_off: 'Off (default)', fx_pop: 'Pop in', fx_ripple: 'Ripple',
+    fx_sparkle: 'Sparkles ✨', fx_rainbow: 'Rainbow ring 🌈',
     tempo_attack: '<b>Initiative</b>: this makes a threat they have to answer.',
     tempo_defend: '<b>Answer</b>: a defence you had to play.',
     tempo_prevent: '<b>Slow</b>: you took away an open-three point of theirs — useful, but still no threat of your own.',
@@ -272,50 +302,59 @@ const THEMES = {
     sheen: 'rgba(140,190,255,.11)', edge: 'rgba(255,255,255,.11)',
     grid: 'rgba(178,205,240,.17)', star: 'rgba(160,200,245,.4)',
     text: 'rgba(206,222,242,.45)', shadow: 'rgba(0,0,0,.6)',
-    black: { fill: ['#75808f', '#2c333e', '#06080c'], rim: 'rgba(190,215,255,.20)',
-             spec: 'rgba(255,255,255,.26)', ink: 'rgba(238,245,255,.95)' },
-    white: { fill: ['#ffffff', '#eef2f7', '#a8b3c0'], rim: 'rgba(25,35,50,.22)',
-             spec: 'rgba(255,255,255,.9)', ink: 'rgba(16,24,36,.92)' },
   },
   wood: {
     acc: '#d09346', board: ['#e6bc7c', '#d4a15d', '#b8823f'],
     sheen: 'rgba(255,242,214,.18)', edge: 'rgba(92,62,26,.5)',
     grid: 'rgba(85,58,25,.55)', star: 'rgba(70,46,18,.8)',
     text: 'rgba(72,48,18,.75)', shadow: 'rgba(60,35,10,.45)',
-    black: { fill: ['#5a5f66', '#22262c', '#0a0c10'], rim: 'rgba(255,255,255,.14)',
-             spec: 'rgba(255,255,255,.3)', ink: 'rgba(255,250,240,.95)' },
-    white: { fill: ['#ffffff', '#f6f2e8', '#cfc6b4'], rim: 'rgba(90,70,40,.28)',
-             spec: 'rgba(255,255,255,.95)', ink: 'rgba(50,38,20,.9)' },
   },
   paper: {
     acc: '#4a7fb5', board: ['#f8f5ee', '#f1ede2', '#e6e0d2'],
     sheen: 'rgba(255,255,255,.5)', edge: 'rgba(120,110,95,.35)',
     grid: 'rgba(70,66,58,.42)', star: 'rgba(60,56,48,.7)',
     text: 'rgba(80,74,64,.7)', shadow: 'rgba(90,80,60,.28)',
-    black: { fill: ['#4a4f57', '#1b1f25', '#0b0e12'], rim: 'rgba(255,255,255,.12)',
-             spec: 'rgba(255,255,255,.22)', ink: 'rgba(250,250,248,.95)' },
-    white: { fill: ['#ffffff', '#fbfaf6', '#dcd7cb'], rim: 'rgba(60,56,48,.45)',
-             spec: 'rgba(255,255,255,.9)', ink: 'rgba(40,38,32,.9)' },
   },
   neon: {
     acc: '#22e6c8', board: ['#0e1822', '#0a1018', '#05080c'],
     sheen: 'rgba(0,255,220,.07)', edge: 'rgba(0,255,220,.28)',
     grid: 'rgba(0,240,210,.2)', star: 'rgba(0,255,220,.55)',
     text: 'rgba(120,255,235,.5)', shadow: 'rgba(0,0,0,.75)',
-    black: { fill: ['#2a4a55', '#0e1a20', '#02060a'], rim: 'rgba(0,255,220,.55)',
-             spec: 'rgba(120,255,235,.35)', ink: 'rgba(150,255,240,.95)' },
-    white: { fill: ['#ffffff', '#e6fbff', '#8fd8e8'], rim: 'rgba(0,120,140,.4)',
-             spec: 'rgba(255,255,255,.95)', ink: 'rgba(6,20,26,.92)' },
   },
   mono: {
     acc: '#c4c4c4', board: ['#2c2c2c', '#262626', '#1f1f1f'],
     sheen: 'rgba(255,255,255,.04)', edge: 'rgba(255,255,255,.14)',
     grid: 'rgba(255,255,255,.18)', star: 'rgba(255,255,255,.32)',
     text: 'rgba(255,255,255,.4)', shadow: 'rgba(0,0,0,.5)',
-    black: { fill: ['#3a3a3a', '#141414', '#050505'], rim: 'rgba(255,255,255,.22)',
-             spec: 'rgba(255,255,255,.12)', ink: 'rgba(245,245,245,.95)' },
-    white: { fill: ['#fafafa', '#f0f0f0', '#cfcfcf'], rim: 'rgba(0,0,0,.25)',
-             spec: 'rgba(255,255,255,.5)', ink: 'rgba(20,20,20,.9)' },
+  },
+};
+
+// Stone sets, independent of the board skin. Each side keeps a clear light/dark
+// separation — they are game pieces first, decoration second.
+const STONES = {
+  classic: {
+    black: { fill: ['#75808f', '#2c333e', '#06080c'], rim: 'rgba(190,215,255,.2)',
+             spec: 'rgba(255,255,255,.26)', ink: 'rgba(238,245,255,.95)' },
+    white: { fill: ['#ffffff', '#eef2f7', '#a8b3c0'], rim: 'rgba(25,35,50,.22)',
+             spec: 'rgba(255,255,255,.9)', ink: 'rgba(16,24,36,.92)' },
+  },
+  neon: {
+    black: { fill: ['#2e6b86', '#0d2230', '#02080e'], rim: 'rgba(0,255,220,.7)',
+             spec: 'rgba(140,255,240,.4)', ink: 'rgba(150,255,240,.95)' },
+    white: { fill: ['#fff2ff', '#ffc0f4', '#ff5fd0'], rim: 'rgba(120,0,90,.35)',
+             spec: 'rgba(255,255,255,.95)', ink: 'rgba(60,0,45,.9)' },
+  },
+  jade: {
+    black: { fill: ['#3f6b57', '#173026', '#050d0a'], rim: 'rgba(190,255,220,.22)',
+             spec: 'rgba(220,255,235,.3)', ink: 'rgba(232,255,242,.95)' },
+    white: { fill: ['#fffdf3', '#f6efd9', '#d3c8a6'], rim: 'rgba(60,70,40,.28)',
+             spec: 'rgba(255,255,255,.9)', ink: 'rgba(40,45,25,.9)' },
+  },
+  sunset: {
+    black: { fill: ['#8a52b0', '#3b1f52', '#150a20'], rim: 'rgba(230,190,255,.3)',
+             spec: 'rgba(255,220,255,.32)', ink: 'rgba(250,235,255,.95)' },
+    white: { fill: ['#fff6e0', '#ffd89b', '#e8993f'], rim: 'rgba(110,60,10,.3)',
+             spec: 'rgba(255,255,255,.92)', ink: 'rgba(70,35,0,.9)' },
   },
 };
 
@@ -331,7 +370,8 @@ const S = {
   rules: load('rules', { doubleThree: true, doubleFour: true, overline: true }),
   coach: load('coach', true), showThreats: load('showThreats', false), tempo: load('tempo', true),
   showNumbers: load('showNumbers', true),
-  theme: load('theme', 'slate'), anim: load('anim', false),
+  theme: load('theme', 'slate'), stones: load('stones', 'classic'),
+  anim: (v => typeof v === 'string' ? v : v ? 'pop' : 'off')(load('anim', 'off')),
   showForbidden: load('showForbidden', true),
   needConfirm: load('needConfirm', matchMedia('(pointer: coarse)').matches),
   hint: null, pending: null, msg: '', hover: null,
@@ -347,8 +387,15 @@ const cv = $('#board'), ctx = cv.getContext('2d');
 let cell = 0, pad = 0, clock = 0, raf = 0, drop = null;
 const slowMo = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const skin = () => THEMES[S.theme] || THEMES.slate;
-const canAnimate = () => S.anim && !slowMo;
-const DROP_MS = 220;
+const pieces = () => STONES[S.stones] || STONES.classic;
+// each effect says how long it runs and whether the stone itself scales in
+const FX = {
+  pop:     { ms: 220, scale: true },
+  ripple:  { ms: 520, scale: false },
+  sparkle: { ms: 620, scale: true },
+  rainbow: { ms: 700, scale: true },
+};
+const fx = () => (slowMo ? null : FX[S.anim]);
 
 function resize() {
   const dpr = devicePixelRatio || 1, w = cv.clientWidth;
@@ -375,12 +422,13 @@ function roundRect(x, y, w, h, r) {
 const pop = k => { const c1 = 1.9, c3 = c1 + 1; return 1 + c3 * (k - 1) ** 3 + c1 * (k - 1) ** 2; };
 const pulse = () => slowMo ? 1 : (Math.sin(clock / 420) + 1) / 2;
 // progress of the drop-in animation; same clock as its start, or it can stall
-const dropK = () => drop ? Math.min(1, (performance.now() - drop.t0) / DROP_MS) : 1;
+const dropK = () => drop ? Math.min(1, (performance.now() - drop.t0) / drop.ms) : 1;
+const scaleK = () => drop ? Math.min(1, (performance.now() - drop.t0) / 220) : 1;
 
 function stone(p, c, alpha = 1, scale = 1) {
   const [cx, cy] = at(p), r = cell * 0.45 * scale;
   if (r <= 0) return;
-  const T = skin(), s = c === BLACK ? T.black : T.white;
+  const s = c === BLACK ? pieces().black : pieces().white, T = skin();
   ctx.save();
   ctx.globalAlpha = alpha;
   ctx.shadowColor = T.shadow;
@@ -408,11 +456,75 @@ function viewBoard() {
   return b;
 }
 
+function startFx(p) {
+  const f = fx();
+  if (f) drop = { p, t0: performance.now(), ms: f.ms };
+}
+
+// The flourish on a freshly placed stone. `k` runs 0 -> 1 over the effect's duration.
+function drawFx(p, k) {
+  const [cx, cy] = at(p), r0 = cell * 0.45, ease = 1 - (1 - k) ** 2;
+  ctx.save();
+  if (S.anim === 'ripple') {
+    const acc = skin().acc;
+    const flash = ctx.createRadialGradient(cx, cy, r0, cx, cy, r0 + cell * 1.5 * ease);
+    flash.addColorStop(0, 'transparent');
+    flash.addColorStop(.75, acc);
+    flash.addColorStop(1, 'transparent');
+    ctx.globalAlpha = (1 - k) * 0.45;
+    ctx.fillStyle = flash;
+    ctx.beginPath(); ctx.arc(cx, cy, r0 + cell * 1.5 * ease, 0, 7); ctx.fill();
+    for (const lag of [0, 0.3]) {
+      const t = (k - lag) / (1 - lag);
+      if (t <= 0) continue;
+      const e = 1 - (1 - t) ** 2;
+      const rr = r0 + cell * 1.35 * e, lw = Math.max(2, cell * 0.15 * (1 - t * 0.5));
+      ctx.globalAlpha = 1 - t * t;
+      ctx.beginPath(); ctx.arc(cx, cy, rr, 0, 7);
+      ctx.shadowBlur = 0;                      // a dark keyline first, so it reads on any board
+      ctx.strokeStyle = 'rgba(0,0,0,.4)';
+      ctx.lineWidth = lw + 2.5;
+      ctx.stroke();
+      ctx.strokeStyle = acc;
+      ctx.shadowColor = acc;
+      ctx.shadowBlur = cell * 0.6;
+      ctx.lineWidth = lw;
+      ctx.stroke();
+    }
+  } else if (S.anim === 'sparkle') {
+    const n = 10;
+    ctx.shadowColor = '#ffcf5c';
+    ctx.shadowBlur = cell * 0.35;
+    for (let i = 0; i < n; i++) {
+      const a = (i / n) * Math.PI * 2 + (p % 9) * 0.17;   // per-point jitter, no RNG needed
+      const rad = cell * 0.11 * (1 - k);
+      if (rad <= 0) continue;
+      const d = r0 * 0.5 + cell * 1.2 * ease;
+      ctx.globalAlpha = 1 - k;
+      ctx.fillStyle = i % 3 ? '#fff3c4' : '#ffd166';
+      ctx.beginPath(); ctx.arc(cx + Math.cos(a) * d, cy + Math.sin(a) * d, rad, 0, 7); ctx.fill();
+    }
+  } else if (S.anim === 'rainbow') {
+    const seg = 12, span = (Math.PI * 2 / seg) * 0.92;
+    ctx.globalAlpha = 1 - k * k;
+    ctx.lineWidth = Math.max(1.5, cell * 0.14 * (1 - k * 0.6));
+    ctx.lineCap = 'round';
+    for (let i = 0; i < seg; i++) {
+      const a0 = (i / seg) * Math.PI * 2 + k * 3.2;
+      ctx.strokeStyle = `hsl(${(i / seg) * 360} 95% 62%)`;
+      ctx.shadowColor = ctx.strokeStyle;
+      ctx.shadowBlur = cell * 0.3;
+      ctx.beginPath(); ctx.arc(cx, cy, r0 + cell * 0.95 * ease, a0, a0 + span); ctx.stroke();
+    }
+  }
+  ctx.restore();
+}
+
 function moveNo(p, c, n) {
   if (!n) return;
   const [cx, cy] = at(p);
   ctx.save();
-  ctx.fillStyle = (c === BLACK ? skin().black : skin().white).ink;
+  ctx.fillStyle = (c === BLACK ? pieces().black : pieces().white).ink;
   ctx.font = `700 ${Math.max(7, cell * (n > 99 ? 0.31 : 0.4))}px system-ui`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
@@ -487,13 +599,14 @@ function draw() {
 
   const bd = S.view ? viewBoard() : S.board;
   const order = S.showNumbers ? new Map(S.history.map((q, i) => [q, i + 1])) : null;
-  const k = dropK();
+  const grows = drop && FX[S.anim]?.scale, sk = scaleK();
   for (let p = 0; p < bd.length; p++) {
     if (!bd[p]) continue;
-    const growing = drop && drop.p === p;
-    stone(p, bd[p], growing ? Math.min(1, k * 2) : 1, growing ? pop(k) : 1);
+    const growing = grows && drop.p === p;
+    stone(p, bd[p], growing ? Math.min(1, sk * 2) : 1, growing ? pop(sk) : 1);
     if (order && !growing) moveNo(p, bd[p], order.get(p));
   }
+  if (drop && bd[drop.p]) drawFx(drop.p, dropK());
   if (viewingPast()) {                   // mid-replay: ring the move shown, and a better one
     const shown = S.history[S.view.i - 1];
     if (shown != null) glowRing(shown, S.view.at != null ? 'rgba(255,86,86,.95)' : '#8ab4f8', { w: 0.09 });
@@ -504,7 +617,7 @@ function draw() {
   const last = S.history.at(-1);
   if (last != null && !S.winLine && !S.showNumbers) {   // the number already says which was last
     const [cx, cy] = at(last);
-    ctx.fillStyle = (S.board[last] === BLACK ? skin().black : skin().white).ink;
+    ctx.fillStyle = (S.board[last] === BLACK ? pieces().black : pieces().white).ink;
     ctx.beginPath(); ctx.arc(cx, cy, cell * 0.09, 0, 7); ctx.fill();
   }
 
@@ -580,7 +693,7 @@ function pbTick() {
   if (!S.view?.playing) return;
   S.view.i++;
   S.view.at = null;
-  if (canAnimate()) drop = { p: S.history[S.view.i - 1], t0: performance.now() };
+  startFx(S.history[S.view.i - 1]);
   if (S.view.i >= S.history.length) S.view.playing = false;   // stop on the last move, not after it
   render();
   if (S.view.playing) pbTimer = setTimeout(pbTick, STEP_MS);
@@ -650,7 +763,7 @@ function place(p) {
   S.hint = S.pending = S.hover = null;
   S.board[p] = S.turn;
   S.history.push(p);
-  if (canAnimate()) drop = { p, t0: performance.now() };
+  startFx(p);
   S.winLine = winLine(S.board, p, S.rules);
   if (S.winLine) S.over = S.turn === S.human ? 'youWin' : 'aiWin';
   else if (S.history.length === SIZE * SIZE) S.over = 'draw';
@@ -773,10 +886,12 @@ const bind = (sel, key, get, set) => {
 };
 bind('#level', 'level', el => S.level = el.value, el => el.value = S.level);
 bind('#theme', 'theme', el => S.theme = el.value, el => el.value = S.theme);
+bind('#stones', 'stones', el => S.stones = el.value, el => el.value = S.stones);
+bind('#anim', 'anim', el => S.anim = el.value, el => el.value = S.anim);
 bind('#side', 'human', el => { S.human = +el.value; save('human', S.human); newGame(); }, el => el.value = S.human);
 for (const k of ['doubleThree', 'doubleFour', 'overline'])
   bind('#' + k, 'rules', el => S.rules[k] = el.checked, el => el.checked = S.rules[k]);
-for (const k of ['coach', 'showThreats', 'showForbidden', 'needConfirm', 'tempo', 'showNumbers', 'anim'])
+for (const k of ['coach', 'showThreats', 'showForbidden', 'needConfirm', 'tempo', 'showNumbers'])
   bind('#' + k, k, el => S[k] = el.checked, el => el.checked = S[k]);
 
 addEventListener('resize', resize);
