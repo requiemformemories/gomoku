@@ -1,6 +1,6 @@
 // Self-check for the rules + AI. Run: node test.mjs
 import assert from 'node:assert';
-import { newBoard, idx, BLACK, WHITE, forbidden, isWin, winLine, bestMove, analyzePoint, coach,
+import { newBoard, idx, SIZE, BLACK, WHITE, forbidden, isWin, winLine, bestMove, analyzePoint, coach,
          hint, fiveThreats, tempo, review, label } from './engine.js';
 
 const ALL = { doubleThree: true, doubleFour: true, overline: true };
@@ -68,10 +68,16 @@ b = put(newBoard(), WHITE, [6, 7], [7, 7], [8, 7]);
 put(b, BLACK, [5, 7]);
 assert.equal(coach(b, idx(14, 14), BLACK, ALL), null, 'a blocked three is not an emergency');
 
-// an unblocked four is still an emergency
+// a four with one end walled off must be answered, and ignoring it is the mistake
+b = put(newBoard(), WHITE, [6, 7], [7, 7], [8, 7], [9, 7]);
+put(b, BLACK, [5, 7], [0, 0]);
+assert.equal(coach(b, idx(14, 14), BLACK, ALL)?.key, 'missBlock');
+
+// but a straight four cannot be blocked, so the blocking move is not the mistake
 b = put(newBoard(), WHITE, [6, 7], [7, 7], [8, 7], [9, 7]);
 put(b, BLACK, [0, 0]);
-assert.equal(coach(b, idx(14, 14), BLACK, ALL)?.key, 'missBlock');
+assert.equal(coach(b, idx(5, 7), BLACK, ALL)?.key, 'tooLate');
+assert.equal(coach(b, idx(10, 7), BLACK, ALL)?.key, 'tooLate', 'either end is equally futile');
 
 // taking your own win beats warning about theirs
 b = put(newBoard(), BLACK, [3, 7], [4, 7], [5, 7], [6, 7]);
@@ -102,6 +108,9 @@ assert.equal(tempo(b, idx(8, 7), BLACK, ALL), 'attack', 'making an open three is
 assert.equal(tempo(b, idx(0, 0), BLACK, ALL), 'idle', 'a corner move forces nothing');
 b = put(newBoard(), WHITE, [6, 7], [7, 7], [8, 7]);
 assert.equal(tempo(b, idx(5, 7), BLACK, ALL), 'defend', 'blocking an open three is a needed answer');
+// taking away a point they would have made an open three on is slow but not nothing
+b = put(newBoard(), WHITE, [6, 7], [7, 7]);
+assert.equal(tempo(b, idx(8, 7), BLACK, ALL), 'prevent');
 
 // post-game review: black makes an open three, then ignores white's
 const game = [[7, 7], [7, 8], [8, 7], [8, 8], [9, 7], [9, 8], [0, 0]].map(([x, y]) => idx(x, y));
@@ -111,6 +120,25 @@ assert.ok(rv.best.some(m => m.key === 'three' && label(m.p) === 'J8'), JSON.stri
 assert.ok(rv.worst.some(m => m.key === 'missOpenThree' && label(m.p) === 'A15'), JSON.stringify(rv.worst));
 assert.ok(rv.worst.every(m => m.at !== m.p), 'never suggest the move that was actually played');
 assert.ok(rv.best.every(m => m.score > 0) && rv.worst.every(m => m.score < 0));
+
+// regression: a real game a user disputed. White (the player) is the human.
+// ply 28 I10 blocks nothing — black completing row 10 there would be an overline foul —
+// while black's split three in file H was the move that had to be answered.
+const plies = ['H8','G9','I9','G7','G8','I8','F8','E8','J10','F9','K11','L12','G10','E9',
+               'D9','E7','E10','F7','D7','I7','H7','E6','E5','D8','F10','D10','H10','I10',
+               'H9','H11','H6'].map(sq => idx('ABCDEFGHIJKLMNO'.indexOf(sq[0]), SIZE - +sq.slice(1)));
+const upto = n => { const bd = newBoard(); for (let i = 0; i < n; i++) bd[plies[i]] = i % 2 ? WHITE : BLACK; return bd; };
+assert.deepEqual(winLine(upto(31), plies[30], ALL).map(label), ['H10', 'H9', 'H8', 'H7', 'H6']);
+assert.equal(forbidden(upto(27), idx(8, 5), ALL), 'overline', 'black at I10 would make six');
+assert.deepEqual(fiveThreats(upto(27), BLACK, ALL), [], 'so black had no five-point there');
+assert.deepEqual(fiveThreats(upto(29), BLACK, ALL).map(label).sort(), ['H11', 'H6'], 'straight four');
+
+const real = review(plies, ALL, WHITE);
+const byMove = Object.fromEntries(
+  [...real.best, ...real.worst].map(m => [label(m.p), m.key]));
+assert.equal(byMove.I10, 'missOpenThree', 'blocking a foul point while a three grows is the mistake');
+assert.ok(!('H11' in byMove), 'the futile block is not blamed: ' + JSON.stringify(byMove));
+assert.ok(!('D8' in byMove), 'denying an open-three point is not "did nothing": ' + JSON.stringify(byMove));
 
 assert.equal(label(idx(7, 7)), 'H8');
 console.log('all ok');

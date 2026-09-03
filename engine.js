@@ -293,6 +293,8 @@ export function coach(b, p, c, rules) {
   if (mine.five) return null;                 // you won — a five elsewhere is not a miss
   const win = legalMoves(b, c, rules).find(q => analyzePoint(b, q, c, rules).five);
   if (win != null) return { key: 'missWin', at: win };
+  // a straight four has two five-points: no move blocks it, so this move is not the mistake
+  if (fiveThreats(b, op, rules).length >= 2) return { key: 'tooLate' };
   b[p] = c;                                   // judge the threats that survive the move
   let five = null, straight = null;
   for (const q of candidates(b)) {
@@ -318,28 +320,45 @@ export function threats(b, c, rules) {
   return out;
 }
 
-/** How urgently `c` threatens: 2 = can complete five, 1 = has an open three, 0 = neither. */
-export function threatLevel(b, c, rules) {
-  let lvl = 0;
+/** How many points let `c` complete five, make a straight four, or make an open three. */
+export function threatPoints(b, c, rules) {
+  let five = 0, straight = 0, three = 0;
   for (const q of candidates(b)) {
     const a = analyzePoint(b, q, c, rules);
-    if (a.five) return 2;
-    if (a.straight) lvl = 1;
+    if (a.five) five++;
+    if (a.straight) straight++;
+    if (a.threes) three++;
   }
-  return lvl;
+  return { five, straight, three };
 }
 
-/** Did the move at `p` force a reply? 'win' | 'attack' (先手) | 'defend' | 'idle' (後手). */
+/** 2 = can complete five, 1 = has an open three, 0 = neither. Only these must be answered. */
+const level = t => (t.five ? 2 : t.straight ? 1 : 0);
+export const threatLevel = (b, c, rules) => level(threatPoints(b, c, rules));
+
+/** Did the move at `p` force a reply?
+ *  'win' | 'attack' (先手) | 'defend' (answered a must-answer threat)
+ *  | 'prevent' (took away a point they would have made an open three on) | 'idle'. */
 export function tempo(b, p, c, rules) {
   const mine = analyzePoint(b, p, c, rules);
   if (mine.five) return 'win';
   if (mine.fours || mine.threes) return 'attack';
   const op = other(c);
-  const before = threatLevel(b, op, rules);
+  const before = threatPoints(b, op, rules);
   b[p] = c;
-  const after = threatLevel(b, op, rules);
+  const after = threatPoints(b, op, rules);
   b[p] = EMPTY;
-  return after < before ? 'defend' : 'idle';
+  if (level(after) < level(before)) return 'defend';
+  if (after.three < before.three) return 'prevent';
+  return wasted(b, c, before, rules) ? 'idle' : 'quiet';
+}
+
+// A move is only wasted if the position offered something better: an attack you could have
+// started, or a development point of theirs you could have taken. Early on it offers neither.
+function wasted(b, c, before, rules) {
+  if (before.three) return true;
+  const own = threatPoints(b, c, rules);
+  return !!(own.five || own.straight || own.three);
 }
 
 // One move, graded. Negative scores are mistakes; `at` is where the move should have gone.
@@ -349,23 +368,25 @@ function judge(b, p, c, rules) {
 
   const note = coach(b, p, c, rules);
   if (note) {
-    const cost = { missWin: -100, missBlock: -70, missOpenThree: -45 };
+    const cost = { missWin: -100, missBlock: -70, missOpenThree: -45, tooLate: 0 };
     return { score: cost[note.key], key: note.key, at: note.at };
   }
 
   const op = other(c);
-  const before = threatLevel(b, op, rules);
+  const before = threatPoints(b, op, rules);
   b[p] = c;
-  const after = threatLevel(b, op, rules);
+  const after = threatPoints(b, op, rules);
   b[p] = EMPTY;
-  const held = after < before;   // the move removed a must-answer threat
+  const held = level(after) < level(before);   // the move removed a must-answer threat
 
   const double = (mine.fours && mine.threes) || mine.threes >= 2 || mine.fours >= 2;
   if (double)      return { score: held ? 95 : 85, key: held ? 'counterKill' : 'double' };
   if (mine.threes) return { score: held ? 70 : 55, key: held ? 'blockAndThree' : 'three' };
   if (mine.fours)  return { score: held ? 50 : 25, key: held ? 'blockAndFour' : 'four' };
   if (held)        return { score: 30, key: 'block' };
-  return { score: -15, key: 'idle' };
+  // denying a point they would have made an open three on is slow, but it is not nothing
+  if (after.three < before.three) return { score: 0, key: 'prevent' };
+  return wasted(b, c, before, rules) ? { score: -15, key: 'idle' } : { score: 0, key: 'quiet' };
 }
 
 /** Grade every move `human` played. Returns the three best and the three weakest.
