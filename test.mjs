@@ -1,6 +1,7 @@
 // Self-check for the rules + AI. Run: node test.mjs
 import assert from 'node:assert';
-import { newBoard, idx, BLACK, WHITE, forbidden, isWin, winLine, bestMove, analyzePoint, coach, hint, fiveThreats, label } from './engine.js';
+import { newBoard, idx, BLACK, WHITE, forbidden, isWin, winLine, bestMove, analyzePoint, coach,
+         hint, fiveThreats, tempo, review, label } from './engine.js';
 
 const ALL = { doubleThree: true, doubleFour: true, overline: true };
 const FREE = { doubleThree: false, doubleFour: false, overline: false };
@@ -94,6 +95,22 @@ assert.equal(hint(b, BLACK, ALL, 'medium').reason, 'blockWin');
 b = put(newBoard(), WHITE, [6, 7], [7, 7], [8, 7], [9, 7]);
 put(b, BLACK, [1, 2], [1, 3], [1, 4], [1, 5]);
 assert.equal(hint(b, BLACK, ALL, 'medium').reason, 'win');
+
+// tempo: did the move force a reply?
+b = put(newBoard(), BLACK, [6, 7], [7, 7]);
+assert.equal(tempo(b, idx(8, 7), BLACK, ALL), 'attack', 'making an open three is 先手');
+assert.equal(tempo(b, idx(0, 0), BLACK, ALL), 'idle', 'a corner move forces nothing');
+b = put(newBoard(), WHITE, [6, 7], [7, 7], [8, 7]);
+assert.equal(tempo(b, idx(5, 7), BLACK, ALL), 'defend', 'blocking an open three is a needed answer');
+
+// post-game review: black makes an open three, then ignores white's
+const game = [[7, 7], [7, 8], [8, 7], [8, 8], [9, 7], [9, 8], [0, 0]].map(([x, y]) => idx(x, y));
+const rv = review(game, ALL, BLACK);
+assert.equal(rv.moves, 4, 'four black moves in a seven-ply game');
+assert.ok(rv.best.some(m => m.key === 'three' && label(m.p) === 'J8'), JSON.stringify(rv.best));
+assert.ok(rv.worst.some(m => m.key === 'missOpenThree' && label(m.p) === 'A15'), JSON.stringify(rv.worst));
+assert.ok(rv.worst.every(m => m.at !== m.p), 'never suggest the move that was actually played');
+assert.ok(rv.best.every(m => m.score > 0) && rv.worst.every(m => m.score < 0));
 
 assert.equal(label(idx(7, 7)), 'H8');
 console.log('all ok');

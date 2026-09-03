@@ -47,6 +47,19 @@
   label select { flex:1; padding:.35rem .5rem; }
   .hr { border-top:1px solid var(--line); margin:.6rem -.7rem; }
   .legend { font-size:.8rem; color:var(--dim); }
+  #review { border:1px solid var(--line); border-radius:12px; padding:.6rem .7rem;
+    background:rgba(255,255,255,.025); display:flex; flex-direction:column; gap:.15rem; }
+  #review h2 { font-size:.95rem; margin:0 0 .2rem; }
+  #review h3 { font-size:.8rem; margin:.5rem 0 .15rem; color:var(--dim); font-weight:600; }
+  button.rv { display:flex; gap:.5rem; align-items:baseline; width:100%; text-align:left;
+    background:none; border:0; box-shadow:none; padding:.3rem .35rem; border-radius:8px; font-size:.86rem; }
+  button.rv:hover { background:rgba(255,255,255,.06); filter:none; }
+  button.rv b { color:var(--dim); font-weight:500; min-width:1.9rem; }
+  button.rv .pt { font-variant-numeric:tabular-nums; font-weight:700; min-width:2.4rem; }
+  button.rv .good .pt, .good { color:#5ee0a8; }
+  button.rv .bad .pt, .bad { color:#ff7a7a; }
+  button.rv i { font-style:normal; color:var(--acc); }
+  .rvNote { font-size:.78rem; color:var(--dim); margin:.35rem 0 0; }
 </style>
 </head>
 <body>
@@ -68,6 +81,7 @@
       <button id="ok" class="primary" data-i18n="confirmMove"></button>
       <button id="cancel" data-i18n="cancel"></button>
     </div>
+    <section id="review" hidden></section>
     <details open>
       <summary data-i18n="settings"></summary>
       <label><span data-i18n="difficulty"></span>
@@ -95,6 +109,7 @@
       <label><input type="checkbox" id="coach"><span data-i18n="coachOpt"></span></label>
       <label><input type="checkbox" id="showThreats"><span data-i18n="threatsOpt"></span></label>
       <label><input type="checkbox" id="showForbidden"><span data-i18n="forbiddenOpt"></span></label>
+      <label><input type="checkbox" id="tempo"><span data-i18n="tempoOpt"></span></label>
       <label><input type="checkbox" id="needConfirm"><span data-i18n="confirmOpt"></span></label>
       <p class="legend" data-i18n="legend"></p>
     </details>
@@ -104,7 +119,7 @@
 <script type="module">
 import { SIZE, EMPTY, BLACK, WHITE, newBoard, idx, xy, other, forbidden, winLine,
          bestMove, hint as getHint, coach, threats, label, legalMoves, candidates,
-         fiveThreats } from './engine.js';
+         fiveThreats, tempo, review } from './engine.js';
 
 const I18N = {
   zh: {
@@ -117,6 +132,20 @@ const I18N = {
     learnHead: '學習輔助',
     coachOpt: '教練提醒（下錯時告訴我）', threatsOpt: '標示對手威脅點',
     forbiddenOpt: '標示我的禁手點', confirmOpt: '落子需確認（手機建議開）',
+    tempoOpt: '每手評先手／後手',
+    tempo_attack: '<b>先手</b>：這手做出威脅，對手非應不可。',
+    tempo_defend: '<b>後手</b>：必要的防守，擋掉了對手的威脅。',
+    tempo_idle: '<b>後手</b>：沒做威脅，對手也沒逼你 — 這一手本來可以拿去做活三。',
+    reviewHead: '賽後回顧', reviewBest: '表現最好', reviewWorst: '可以更好',
+    reviewNone: '這局沒有做出威脅的手。', reviewClean: '這局沒有明顯失誤 👍',
+    reviewBetter: '更好：{p}', reviewTap: '點任一手看當時的盤面（紅＝你下的，綠＝更好的點）',
+    reviewBack: '回到終局',
+    rv_win: '連五獲勝', rv_double: '雙威脅，對手擋不完',
+    rv_counterKill: '擋下威脅同時做出雙威脅', rv_three: '做出活三',
+    rv_blockAndThree: '擋下威脅同時做出活三', rv_four: '做出四，搶到先手',
+    rv_blockAndFour: '擋下威脅同時做出四', rv_block: '必要的防守',
+    rv_idle: '空手 — 沒威脅也沒防守', rv_missWin: '錯過連五的機會',
+    rv_missBlock: '沒擋住對手的四', rv_missOpenThree: '放過對手的活三',
     confirmMove: '確認落子', cancel: '取消',
     legend: '紅圈＝對手可成四／五　橘圈＝對手活三　紅✕＝黑棋禁手　綠圈＝提示',
     yourTurn: '你的回合', aiTurn: 'AI 思考中…',
@@ -146,6 +175,20 @@ const I18N = {
     learnHead: 'Learning aids',
     coachOpt: 'Coach (tell me when I slip)', threatsOpt: 'Mark opponent threats',
     forbiddenOpt: 'Mark my forbidden points', confirmOpt: 'Confirm before placing (good on phones)',
+    tempoOpt: 'Grade every move: initiative or answer',
+    tempo_attack: '<b>Initiative</b>: this makes a threat they have to answer.',
+    tempo_defend: '<b>Answer</b>: a defence you had to play.',
+    tempo_idle: '<b>Slow</b>: no threat made, and none forced on you — this move could have attacked.',
+    reviewHead: 'Game review', reviewBest: 'Best moves', reviewWorst: 'Weakest moves',
+    reviewNone: 'No threatening moves this game.', reviewClean: 'No clear mistakes 👍',
+    reviewBetter: 'Better: {p}', reviewTap: 'Tap a move to see that position (red = yours, green = better)',
+    reviewBack: 'Back to the final position',
+    rv_win: 'Completed five', rv_double: 'Double threat — unanswerable',
+    rv_counterKill: 'Blocked and built a double threat', rv_three: 'Made an open three',
+    rv_blockAndThree: 'Blocked and made an open three', rv_four: 'Made a four, kept the initiative',
+    rv_blockAndFour: 'Blocked and made a four', rv_block: 'A defence you had to play',
+    rv_idle: 'Slow — no threat, no defence', rv_missWin: 'Missed a win',
+    rv_missBlock: 'Left their four unblocked', rv_missOpenThree: 'Let their open three stand',
     confirmMove: 'Place stone', cancel: 'Cancel',
     legend: 'Red ring = opponent four/five · Orange = open three · Red ✕ = forbidden for black · Green = hint',
     yourTurn: 'Your turn', aiTurn: 'AI thinking…',
@@ -177,11 +220,12 @@ const S = {
   board: newBoard(), history: [], turn: BLACK, over: null, thinking: false,
   human: load('human', BLACK), level: load('level', 'medium'),
   rules: load('rules', { doubleThree: true, doubleFour: true, overline: true }),
-  coach: load('coach', true), showThreats: load('showThreats', false),
+  coach: load('coach', true), showThreats: load('showThreats', false), tempo: load('tempo', true),
   showForbidden: load('showForbidden', true),
   needConfirm: load('needConfirm', matchMedia('(pointer: coarse)').matches),
   hint: null, pending: null, msg: '', hover: null,
   winLine: null, marks: { threats: [], forbidden: [] },
+  review: null, replay: null,
 };
 
 const $ = s => document.querySelector(s);
@@ -308,11 +352,17 @@ function draw() {
   if (!w) return;
   drawBoard(w);
 
+  const bd = S.replay ? S.replay.board : S.board;
   const k = dropK();
-  for (let p = 0; p < S.board.length; p++) {
-    if (!S.board[p]) continue;
-    const growing = drop && drop.p === p;
-    stone(p, S.board[p], growing ? Math.min(1, k * 2) : 1, growing ? pop(k) : 1);
+  for (let p = 0; p < bd.length; p++) {
+    if (!bd[p]) continue;
+    const growing = !S.replay && drop && drop.p === p;
+    stone(p, bd[p], growing ? Math.min(1, k * 2) : 1, growing ? pop(k) : 1);
+  }
+  if (S.replay) {                        // reviewing one move: what you played vs what beat it
+    glowRing(S.replay.p, 'rgba(255,86,86,.95)', { w: 0.09 });
+    if (S.replay.at != null) glowRing(S.replay.at, '#3ddc84', { w: 0.09 });
+    return;
   }
 
   const last = S.history.at(-1);
@@ -345,7 +395,7 @@ function draw() {
   }
 }
 
-function animating() { return !slowMo && (drop || S.hint != null || S.winLine); }
+function animating() { return !slowMo && !S.replay && (drop || S.hint != null || S.winLine); }
 
 function frame(now) {
   clock = now;
@@ -375,12 +425,31 @@ function applyI18n() {
   render();
 }
 
+function renderReview() {
+  const el = $('#review');
+  el.hidden = !S.review;
+  if (!S.review) { el.innerHTML = ''; return; }
+  const row = (m, good) => `<button class="rv ${good ? 'good' : 'bad'}" data-p="${m.p}">
+      <b>#${m.n}</b><span class="pt">${label(m.p)}</span>
+      <span>${t('rv_' + m.key)}${!good && m.at != null ? ` <i>${t('reviewBetter', { p: label(m.at) })}</i>` : ''}</span>
+    </button>`;
+  const { best, worst } = S.review;
+  el.innerHTML = `<h2>${t('reviewHead')}</h2>
+    <h3>${t('reviewBest')}</h3>
+    ${best.length ? best.map(m => row(m, true)).join('') : `<p class="rvNote">${t('reviewNone')}</p>`}
+    <h3>${t('reviewWorst')}</h3>
+    ${worst.length ? worst.map(m => row(m, false)).join('') : `<p class="rvNote">${t('reviewClean')}</p>`}
+    ${S.replay ? `<button id="rvBack">${t('reviewBack')}</button>`
+               : `<p class="rvNote">${t('reviewTap')}</p>`}`;
+}
+
 function render() {
   $('#status').textContent = S.over ? t(S.over) : S.thinking ? t('aiTurn') : t('yourTurn');
   $('#msg').innerHTML = S.msg;
   $('#undo').disabled = !S.history.length || S.thinking;
   $('#hint').disabled = !!S.over || S.thinking || S.turn !== S.human;
   $('#confirmRow').hidden = S.pending == null;
+  renderReview();
   draw();
   kick();
 }
@@ -398,6 +467,7 @@ function place(p) {
   else if (S.history.length === SIZE * SIZE) S.over = 'draw';
   else S.turn = other(S.turn);
   recomputeMarks();
+  if (S.over) S.review = review(S.history, S.rules, S.human, 'medium');
   if (!S.over && S.turn === S.human) {
     const lose = fiveThreats(S.board, other(S.human), S.rules);
     if (lose.length >= 2) S.msg = t('doomed', { a: label(lose[0]), b: label(lose[1]) });
@@ -418,8 +488,11 @@ function humanMove(p) {
 
 function commit(p) {
   const note = S.coach ? coach(S.board, p, S.human, S.rules) : null;
+  const tv = S.tempo ? tempo(S.board, p, S.human, S.rules) : null;   // both need the pre-move board
+  const text = note ? t(note.key, { p: label(note.at) })
+             : tv && tv !== 'win' ? t('tempo_' + tv) : '';
   place(p);
-  say(note && !S.over ? t(note.key, { p: label(note.at) }) : '');
+  say(S.over ? '' : text);
 }
 
 function aiTurn() {
@@ -435,7 +508,7 @@ function aiTurn() {
 
 function newGame() {
   S.board = newBoard(); S.history = []; S.turn = BLACK; S.over = null;
-  S.hint = S.pending = S.hover = S.winLine = null; S.msg = '';
+  S.hint = S.pending = S.hover = S.winLine = S.review = S.replay = null; S.msg = '';
   recomputeMarks();
   render();
   if (S.turn !== S.human) aiTurn();
@@ -460,12 +533,24 @@ cv.addEventListener('pointerleave', () => { if (S.hover != null) { S.hover = nul
 
 $('#ok').onclick = () => { const p = S.pending; S.pending = null; if (p != null) commit(p); };
 $('#cancel').onclick = () => { S.pending = null; render(); };
+$('#review').addEventListener('click', e => {
+  const btn = e.target.closest('button');
+  if (!btn || !S.review) return;
+  if (btn.id === 'rvBack') { S.replay = null; render(); return; }
+  const m = [...S.review.best, ...S.review.worst].find(x => x.p === +btn.dataset.p);
+  if (!m) return;
+  const board = m.board.slice();
+  board[m.p] = S.human;
+  S.replay = { board, p: m.p, at: m.score < 0 ? m.at : null };
+  render();
+});
+
 $('#newGame').onclick = newGame;
 $('#undo').onclick = () => {
   if (S.thinking) return;
   const n = S.over ? 1 : (S.history.length && S.board[S.history.at(-1)] !== S.human ? 2 : 1);
   for (let i = 0; i < n && S.history.length; i++) S.board[S.history.pop()] = EMPTY;
-  S.over = null; S.hint = S.pending = S.hover = S.winLine = null; S.msg = '';
+  S.over = null; S.hint = S.pending = S.hover = S.winLine = S.review = S.replay = null; S.msg = '';
   S.turn = S.history.length ? S.human : BLACK;
   recomputeMarks();
   render();
@@ -488,7 +573,7 @@ bind('#level', 'level', el => S.level = el.value, el => el.value = S.level);
 bind('#side', 'human', el => { S.human = +el.value; save('human', S.human); newGame(); }, el => el.value = S.human);
 for (const k of ['doubleThree', 'doubleFour', 'overline'])
   bind('#' + k, 'rules', el => S.rules[k] = el.checked, el => el.checked = S.rules[k]);
-for (const k of ['coach', 'showThreats', 'showForbidden', 'needConfirm'])
+for (const k of ['coach', 'showThreats', 'showForbidden', 'needConfirm', 'tempo'])
   bind('#' + k, k, el => S[k] = el.checked, el => el.checked = S[k]);
 
 addEventListener('resize', resize);

@@ -318,4 +318,83 @@ export function threats(b, c, rules) {
   return out;
 }
 
+/** How urgently `c` threatens: 2 = can complete five, 1 = has an open three, 0 = neither. */
+export function threatLevel(b, c, rules) {
+  let lvl = 0;
+  for (const q of candidates(b)) {
+    const a = analyzePoint(b, q, c, rules);
+    if (a.five) return 2;
+    if (a.straight) lvl = 1;
+  }
+  return lvl;
+}
+
+/** Did the move at `p` force a reply? 'win' | 'attack' (先手) | 'defend' | 'idle' (後手). */
+export function tempo(b, p, c, rules) {
+  const mine = analyzePoint(b, p, c, rules);
+  if (mine.five) return 'win';
+  if (mine.fours || mine.threes) return 'attack';
+  const op = other(c);
+  const before = threatLevel(b, op, rules);
+  b[p] = c;
+  const after = threatLevel(b, op, rules);
+  b[p] = EMPTY;
+  return after < before ? 'defend' : 'idle';
+}
+
+// One move, graded. Negative scores are mistakes; `at` is where the move should have gone.
+function judge(b, p, c, rules) {
+  const mine = analyzePoint(b, p, c, rules);
+  if (mine.five) return { score: 100, key: 'win' };
+
+  const note = coach(b, p, c, rules);
+  if (note) {
+    const cost = { missWin: -100, missBlock: -70, missOpenThree: -45 };
+    return { score: cost[note.key], key: note.key, at: note.at };
+  }
+
+  const op = other(c);
+  const before = threatLevel(b, op, rules);
+  b[p] = c;
+  const after = threatLevel(b, op, rules);
+  b[p] = EMPTY;
+  const held = after < before;   // the move removed a must-answer threat
+
+  const double = (mine.fours && mine.threes) || mine.threes >= 2 || mine.fours >= 2;
+  if (double)      return { score: held ? 95 : 85, key: held ? 'counterKill' : 'double' };
+  if (mine.threes) return { score: held ? 70 : 55, key: held ? 'blockAndThree' : 'three' };
+  if (mine.fours)  return { score: held ? 50 : 25, key: held ? 'blockAndFour' : 'four' };
+  if (held)        return { score: 30, key: 'block' };
+  return { score: -15, key: 'idle' };
+}
+
+/** Grade every move `human` played. Returns the three best and the three weakest.
+ *  `moves` is the game in play order, black first. */
+export function review(moves, rules, human, level = 'medium') {
+  const b = newBoard();
+  const graded = [];
+  moves.forEach((p, i) => {
+    const c = i % 2 ? WHITE : BLACK;
+    if (c === human) graded.push({ n: graded.length + 1, p, board: b.slice(), ...judge(b, p, c, rules) });
+    b[p] = c;
+  });
+  const ranked = [...graded].sort((x, y) => y.score - x.score);
+  const best = ranked.filter(m => m.score > 0).slice(0, 3);
+
+  const worst = [];
+  let probes = 0;
+  for (const m of [...ranked].reverse()) {          // weakest first
+    if (worst.length === 3 || m.score >= 0) break;
+    if (m.at == null) {                             // a quiet move has no obvious better point
+      if (probes++ === 6) break;                    // ...and asking the engine is not free
+      const h = hint(m.board, human, rules, level);
+      if (!h) continue;
+      m.at = h.move; m.why = h.reason;
+    }
+    if (m.at === m.p) continue;                     // engine would have played it too — not a mistake
+    worst.push(m);
+  }
+  return { best, worst, moves: graded.length };
+}
+
 export const label = p => 'ABCDEFGHIJKLMNO'[p % SIZE] + (SIZE - (p - p % SIZE) / SIZE);
