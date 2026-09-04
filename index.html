@@ -92,7 +92,7 @@
     display:flex; align-items:center; gap:.5rem; }
   .mark { width:1.9em; height:1.9em; flex:none; }
   main { display:grid; grid-template-columns:1fr; gap:1rem; padding:.75rem; justify-items:center; }
-  #boardWrap { width:min(100%, 62vh); aspect-ratio:1; touch-action:manipulation; }
+  #boardWrap { width:min(100%, 62vh); aspect-ratio:1; touch-action:manipulation; position:relative; }
   canvas { width:100%; height:100%; display:block;
     filter: drop-shadow(0 16px 34px rgba(0,0,0,.55)); }
   #panel { width:100%; max-width:420px; display:flex; flex-direction:column; gap:.6rem; }
@@ -101,6 +101,32 @@
     #boardWrap { width:min(58vw, 86vh); }
   }
   #status { font-weight:600; margin:0; }
+  /* win celebration: an overlay on the board, purely CSS-animated once built */
+  #cheer { position:absolute; inset:0; pointer-events:none; overflow:hidden;
+    container-type:size; display:grid; place-items:center; }
+  #cheer .big { font-size:13cqw; font-weight:800; letter-spacing:.02em; white-space:nowrap;
+    text-shadow:0 4px 18px rgba(0,0,0,.6); animation:cheerIn 2.8s cubic-bezier(.2,1.5,.4,1) forwards; }
+  #cheer .youWin { color:#ffd66b; text-shadow:0 0 26px rgba(255,190,60,.7), 0 4px 18px rgba(0,0,0,.6); }
+  #cheer .aiWin { color:#e8e6e1; opacity:.9; animation:cheerLose 2.8s ease forwards; }
+  #cheer .draw { color:var(--dim); }
+  #cheer .burst { position:absolute; width:0; height:0; }
+  #cheer .burst i { position:absolute; width:.5cqw; height:1.6cqw; border-radius:1px; opacity:0;
+    background:hsl(var(--h) 95% 65%); box-shadow:0 0 8px hsl(var(--h) 95% 65%);
+    animation:spark .9s ease-out both; }
+  @keyframes cheerIn {
+    0% { transform:scale(.3) rotate(-8deg); opacity:0; }
+    18% { transform:scale(1.12) rotate(2deg); opacity:1; }
+    30% { transform:scale(1) rotate(0); opacity:1; }
+    80% { opacity:1; } 100% { transform:scale(1); opacity:0; } }
+  @keyframes cheerLose {
+    0% { transform:translateY(-14%); opacity:0; }
+    25% { transform:translateY(0); opacity:.9; }
+    80% { opacity:.9; } 100% { opacity:0; } }
+  @keyframes spark {
+    0% { transform:rotate(var(--a)) translateY(0) scale(1); opacity:1; }
+    100% { transform:rotate(var(--a)) translateY(calc(-1 * var(--d))) scale(.2); opacity:0; } }
+  @media (prefers-reduced-motion: reduce) {
+    #cheer .big { animation:none; opacity:1; } }
   #msg { margin:0; min-height:2.4em; color:var(--dim); font-size:.9rem; }
   #msg b { color:var(--acc); }
   .row { display:flex; gap:.5rem; flex-wrap:wrap; }
@@ -180,7 +206,7 @@
   <button id="lang">EN</button>
 </header>
 <main>
-  <div id="boardWrap"><canvas id="board"></canvas></div>
+  <div id="boardWrap"><canvas id="board"></canvas><div id="cheer" aria-hidden="true" hidden></div></div>
   <aside id="panel">
     <p id="status"></p>
     <p id="msg"></p>
@@ -257,6 +283,13 @@
             <option value="sunset" data-i18n="st_sunset"></option>
           </select>
         </label>
+        <label><span data-i18n="cheerLabel"></span>
+          <select id="cheerOpt">
+            <option value="on" data-i18n="ch_on"></option>
+            <option value="text" data-i18n="ch_text"></option>
+            <option value="off" data-i18n="ch_off"></option>
+          </select>
+        </label>
         <label><span data-i18n="animLabel"></span>
           <select id="anim">
             <option value="off" data-i18n="fx_off"></option>
@@ -264,6 +297,15 @@
             <option value="ripple" data-i18n="fx_ripple"></option>
             <option value="sparkle" data-i18n="fx_sparkle"></option>
             <option value="rainbow" data-i18n="fx_rainbow"></option>
+          </select>
+        </label>
+        <label><span data-i18n="soundLabel"></span>
+          <select id="sound">
+            <option value="off" data-i18n="snd_off"></option>
+            <option value="wood" data-i18n="snd_wood"></option>
+            <option value="clack" data-i18n="snd_clack"></option>
+            <option value="chime" data-i18n="snd_chime"></option>
+            <option value="drop" data-i18n="snd_drop"></option>
           </select>
         </label>
       </details>
@@ -304,6 +346,11 @@ const I18N = {
     st_sunset: '夕陽（紫／琥珀）',
     fx_off: '關閉（預設）', fx_pop: '彈入', fx_ripple: '光環擴散',
     fx_sparkle: '冒星星 ✨', fx_rainbow: '彩虹圈 🌈',
+    cheerLabel: '勝負特效', soundLabel: '落子音效',
+    snd_off: '關閉（預設）', snd_wood: '木頭（低沉的咚）', snd_clack: '清脆敲擊（高亮的喀）',
+    snd_chime: '玉磬（清亮悅耳）', snd_drop: '水滴',
+    ch_on: '煙火＋大字（預設）', ch_text: '只有大字', ch_off: '關閉',
+    cheer_youWin: '贏了！', cheer_aiWin: 'AI 贏了…', cheer_draw: '和局',
     tempo_attack: '<b>先手</b>：這手做出威脅，對手非應不可。',
     tempo_defend: '<b>後手</b>：必要的防守，擋掉了對手的威脅。',
     tempo_prevent: '<b>後手</b>：擋掉對手的活三發展點，有用，但還是沒做出自己的威脅。',
@@ -365,6 +412,11 @@ const I18N = {
     st_jade: 'Jade (green / ivory)', st_sunset: 'Sunset (violet / amber)',
     fx_off: 'Off (default)', fx_pop: 'Pop in', fx_ripple: 'Ripple',
     fx_sparkle: 'Sparkles ✨', fx_rainbow: 'Rainbow ring 🌈',
+    cheerLabel: 'Win / loss effect', soundLabel: 'Placement sound',
+    snd_off: 'Off (default)', snd_wood: 'Wood (low knock)', snd_clack: 'Crisp tick (bright)',
+    snd_chime: 'Chime (bright)', snd_drop: 'Water drop',
+    ch_on: 'Fireworks + banner (default)', ch_text: 'Banner only', ch_off: 'Off',
+    cheer_youWin: 'You win!', cheer_aiWin: 'AI wins…', cheer_draw: 'Draw',
     tempo_attack: '<b>Initiative</b>: this makes a threat they have to answer.',
     tempo_defend: '<b>Answer</b>: a defence you had to play.',
     tempo_prevent: '<b>Slow</b>: you took away an open-three point of theirs — useful, but still no threat of your own.',
@@ -484,7 +536,8 @@ const S = {
   showNumbers: load('showNumbers', true),
   theme: load('theme', 'slate'), stones: load('stones', 'classic'),
   anim: (v => typeof v === 'string' ? v : v ? 'pop' : 'off')(load('anim', 'off')),
-  showForbidden: load('showForbidden', true),
+  showForbidden: load('showForbidden', true), cheer: load('cheer', 'on'),
+  sound: (v => typeof v === 'string' ? v : v ? 'wood' : 'off')(load('sound', 'off')),
   needConfirm: load('needConfirm', matchMedia('(pointer: coarse)').matches),
   hint: null, pending: null, msg: '', hover: null,
   winLine: null, marks: { threats: [], forbidden: [] },
@@ -566,6 +619,47 @@ function viewBoard() {
   const b = newBoard();
   for (let k = 0; k < S.view.i; k++) b[S.history[k]] = k % 2 ? WHITE : BLACK;
   return b;
+}
+
+// Placement sounds, synthesized so the page still ships as three files — no
+// audio assets, no preloading. Noise through a bandpass reads as wood or stone;
+// a bare oscillator reads as a chime. Black plays a little lower than white.
+const SOUNDS = {
+  // a narrow resonator rung by a noise click: pitched, woody, and it needs the makeup gain
+  wood:  { noise: true, freq: 340,  q: 40, decay: .18, gain: 30 },
+  clack: { noise: true, freq: 3600, q: 4,  decay: .05, gain: 1 },    // bright, dry, 50ms tick
+  chime: { wave: 'triangle', freq: 1047, decay: .55, gain: .22 },     // C6, minor third apart
+  drop:  { wave: 'sine', freq: 880, bend: .42, decay: .22, gain: .3 },
+};
+let actx = null;
+function clack(black) {
+  const v = SOUNDS[S.sound];
+  if (!v) return;
+  try {
+    actx ||= new AudioContext();
+    if (actx.state === 'suspended') actx.resume();
+    const t0 = actx.currentTime, f0 = v.freq * (black ? 1 : 1.19);
+    const g = actx.createGain();
+    g.gain.setValueAtTime(v.gain, t0);
+    g.gain.exponentialRampToValueAtTime(.001, t0 + v.decay);
+    g.connect(actx.destination);
+    let src;
+    if (v.noise) {
+      const buf = actx.createBuffer(1, 1024, actx.sampleRate), d = buf.getChannelData(0);
+      for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / d.length) ** 2;
+      src = actx.createBufferSource(); src.buffer = buf;
+      const bp = actx.createBiquadFilter();
+      bp.type = 'bandpass'; bp.Q.value = v.q; bp.frequency.value = f0;
+      src.connect(bp).connect(g);
+    } else {
+      src = actx.createOscillator();
+      src.type = v.wave; src.frequency.setValueAtTime(f0, t0);
+      if (v.bend) src.frequency.exponentialRampToValueAtTime(f0 * v.bend, t0 + v.decay);
+      src.connect(g);
+    }
+    src.start(t0);
+    src.stop(t0 + v.decay + .02);
+  } catch {}                                    // no audio device, blocked context: silence is fine
 }
 
 function startFx(p) {
@@ -924,12 +1018,42 @@ function render() {
 
 function say(html) { S.msg = html; render(); }
 
+// --- win celebration ---------------------------------------------------------
+// Built once when the game ends; CSS animates it. Cleared on a new game.
+function celebrate() {
+  const box = $('#cheer');
+  box.textContent = '';
+  box.hidden = !S.over || S.cheer === 'off';
+  if (box.hidden) return;
+  const big = document.createElement('div');
+  big.className = 'big ' + S.over;
+  big.textContent = t('cheer_' + S.over);
+  box.append(big);
+  if (S.over !== 'youWin' || S.cheer !== 'on' || slowMo) return;
+  for (let i = 0; i < 5; i++) {                       // fireworks, one burst every ~250ms
+    const b = document.createElement('div');
+    b.className = 'burst';
+    b.style.left = 15 + Math.random() * 70 + '%';
+    b.style.top = 12 + Math.random() * 50 + '%';
+    b.style.setProperty('--h', Math.random() * 360 | 0);
+    for (let k = 0; k < 18; k++) {
+      const s = document.createElement('i');
+      s.style.setProperty('--a', k * 20 + 'deg');
+      s.style.setProperty('--d', 12 + Math.random() * 14 + 'cqw');
+      s.style.animationDelay = i * 250 + Math.random() * 60 + 'ms';
+      b.append(s);
+    }
+    box.append(b);
+  }
+}
+
 // --- game flow ---------------------------------------------------------------
 function place(p) {
   S.hint = S.pending = S.hover = null;
   S.board[p] = S.turn;
   S.history.push(p);
   startFx(p);
+  clack(S.turn === BLACK);
   S.winLine = winLine(S.board, p, S.rules);
   if (S.winLine) S.over = S.turn === S.human ? 'youWin' : 'aiWin';
   else if (S.history.length === SIZE * SIZE) S.over = 'draw';
@@ -937,6 +1061,7 @@ function place(p) {
   recomputeMarks();
   if (S.over) {
     S.review = review(S.history, S.rules, S.human, 'medium');
+    celebrate();
     pbPlay();                            // the board becomes a replay of the game just played
   }
   if (!S.over && S.turn === S.human) {
@@ -972,7 +1097,7 @@ function aiTurn() {
   setTimeout(() => {
     const p = bestMove(S.board, S.turn, S.rules, S.level);
     S.thinking = false;
-    if (p == null) { S.over = 'draw'; render(); return; }
+    if (p == null) { S.over = 'draw'; celebrate(); render(); return; }
     place(p);
   }, 30);
 }
@@ -981,6 +1106,7 @@ function newGame() {
   if (location.search) history.replaceState(null, '', location.pathname);
   S.board = newBoard(); S.history = []; S.turn = BLACK; S.over = null;
   S.hint = S.pending = S.hover = S.winLine = S.review = null; S.msg = '';
+  celebrate();
   pbClear();
   recomputeMarks();
   render();
@@ -1068,6 +1194,8 @@ bind('#level', 'level', el => S.level = el.value, el => el.value = S.level);
 bind('#theme', 'theme', el => S.theme = el.value, el => el.value = S.theme);
 bind('#stones', 'stones', el => S.stones = el.value, el => el.value = S.stones);
 bind('#anim', 'anim', el => S.anim = el.value, el => el.value = S.anim);
+bind('#cheerOpt', 'cheer', el => S.cheer = el.value, el => el.value = S.cheer);
+bind('#sound', 'sound', el => { S.sound = el.value; clack(true); }, el => el.value = S.sound);
 bind('#side', 'human', el => { S.human = +el.value; save('human', S.human); newGame(); }, el => el.value = S.human);
 for (const k of ['doubleThree', 'doubleFour', 'overline'])
   bind('#' + k, 'rules', el => S.rules[k] = el.checked, el => el.checked = S.rules[k]);
