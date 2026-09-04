@@ -272,6 +272,7 @@
             <option value="wood" data-i18n="th_wood"></option>
             <option value="paper" data-i18n="th_paper"></option>
             <option value="neon" data-i18n="th_neon"></option>
+            <option value="blossom" data-i18n="th_blossom"></option>
             <option value="mono" data-i18n="th_mono"></option>
           </select>
         </label>
@@ -297,6 +298,7 @@
             <option value="ripple" data-i18n="fx_ripple"></option>
             <option value="sparkle" data-i18n="fx_sparkle"></option>
             <option value="rainbow" data-i18n="fx_rainbow"></option>
+            <option value="bloom" data-i18n="fx_bloom"></option>
           </select>
         </label>
         <label><span data-i18n="soundLabel"></span>
@@ -341,11 +343,11 @@ const I18N = {
     badLink: '網址裡的棋譜讀不出來，已開新局。',
     lookHead: '外觀（棋盤、棋子、特效）', themeLabel: '棋盤', stonesLabel: '棋子', animLabel: '落子特效',
     th_slate: '石板（預設）', th_wood: '經典木紋', th_paper: '棋譜紙',
-    th_neon: '霓虹', th_mono: '極簡黑白',
+    th_neon: '霓虹', th_blossom: '粉橘漸層', th_mono: '極簡黑白',
     st_classic: '黑白（預設）', st_neon: '霓虹（青／洋紅）', st_jade: '玉石（墨綠／象牙）',
     st_sunset: '夕陽（紫／琥珀）',
     fx_off: '關閉（預設）', fx_pop: '彈入', fx_ripple: '光環擴散',
-    fx_sparkle: '冒星星 ✨', fx_rainbow: '彩虹圈 🌈',
+    fx_sparkle: '冒星星 ✨', fx_rainbow: '彩虹圈 🌈', fx_bloom: '冒花花 🌸',
     cheerLabel: '勝負特效', soundLabel: '落子音效',
     snd_off: '關閉（預設）', snd_wood: '木頭（低沉的咚）', snd_clack: '清脆敲擊（高亮的喀）',
     snd_chime: '玉磬（清亮悅耳）', snd_drop: '水滴',
@@ -407,11 +409,11 @@ const I18N = {
     lookHead: 'Appearance (board, stones, effects)', themeLabel: 'Board', stonesLabel: 'Stones',
     animLabel: 'Placement effect',
     th_slate: 'Slate (default)', th_wood: 'Classic wood', th_paper: 'Kifu paper',
-    th_neon: 'Neon', th_mono: 'Minimal mono',
+    th_neon: 'Neon', th_blossom: 'Peach blossom (pink → orange)', th_mono: 'Minimal mono',
     st_classic: 'Classic (default)', st_neon: 'Neon (cyan / magenta)',
     st_jade: 'Jade (green / ivory)', st_sunset: 'Sunset (violet / amber)',
     fx_off: 'Off (default)', fx_pop: 'Pop in', fx_ripple: 'Ripple',
-    fx_sparkle: 'Sparkles ✨', fx_rainbow: 'Rainbow ring 🌈',
+    fx_sparkle: 'Sparkles ✨', fx_rainbow: 'Rainbow ring 🌈', fx_bloom: 'Blossoms 🌸',
     cheerLabel: 'Win / loss effect', soundLabel: 'Placement sound',
     snd_off: 'Off (default)', snd_wood: 'Wood (low knock)', snd_clack: 'Crisp tick (bright)',
     snd_chime: 'Chime (bright)', snd_drop: 'Water drop',
@@ -485,6 +487,12 @@ const THEMES = {
     grid: 'rgba(0,240,210,.2)', star: 'rgba(0,255,220,.55)',
     text: 'rgba(120,255,235,.5)', shadow: 'rgba(0,0,0,.75)',
   },
+  blossom: {
+    acc: '#e2557d', board: ['#ffe3ec', '#ffc7bd', '#ffa877'],
+    sheen: 'rgba(255,255,255,.5)', edge: 'rgba(196,96,84,.38)',
+    grid: 'rgba(158,74,72,.42)', star: 'rgba(146,58,60,.62)',
+    text: 'rgba(148,68,62,.72)', shadow: 'rgba(170,88,74,.35)',
+  },
   mono: {
     acc: '#c4c4c4', board: ['#2c2c2c', '#262626', '#1f1f1f'],
     sheen: 'rgba(255,255,255,.04)', edge: 'rgba(255,255,255,.14)',
@@ -537,7 +545,7 @@ const S = {
   theme: load('theme', 'slate'), stones: load('stones', 'classic'),
   anim: (v => typeof v === 'string' ? v : v ? 'pop' : 'off')(load('anim', 'off')),
   showForbidden: load('showForbidden', true), cheer: load('cheer', 'on'),
-  sound: (v => typeof v === 'string' ? v : v ? 'wood' : 'off')(load('sound', 'off')),
+  sound: (v => typeof v === 'string' ? v : v ? 'wood' : 'off')(load('sound', 'wood')),
   needConfirm: load('needConfirm', matchMedia('(pointer: coarse)').matches),
   hint: null, pending: null, msg: '', hover: null,
   winLine: null, marks: { threats: [], forbidden: [] },
@@ -559,6 +567,7 @@ const FX = {
   ripple:  { ms: 520, scale: false },
   sparkle: { ms: 620, scale: true },
   rainbow: { ms: 700, scale: true },
+  bloom:   { ms: 460, scale: true },
 };
 const fx = () => (slowMo ? null : FX[S.anim]);
 
@@ -667,6 +676,38 @@ function startFx(p) {
   if (f) drop = { p, t0: performance.now(), ms: f.ms };
 }
 
+// One blossom: five bezier petals shaded from a pale heart out to the tip, with a
+// stamen cluster. Petals are real paths — a stack of discs just reads as a blob.
+function flower(x, y, r, rot, pale, deep) {
+  ctx.save();
+  ctx.translate(x, y); ctx.rotate(rot);
+  const g = ctx.createRadialGradient(0, 0, r * 0.1, 0, 0, r);
+  g.addColorStop(0, '#fffafc'); g.addColorStop(.4, pale); g.addColorStop(1, deep);
+  ctx.fillStyle = g;
+  ctx.strokeStyle = 'rgba(122,28,68,.3)';
+  ctx.lineWidth = Math.max(.5, r * 0.045);
+  for (let i = 0; i < 5; i++) {
+    ctx.save();
+    ctx.rotate((i / 5) * Math.PI * 2 + (i % 2 ? .06 : -.04));   // no two petals sit exactly alike
+    const pr = r * (i % 2 ? .93 : 1);
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.bezierCurveTo(pr * .26, -pr * .46, pr * .84, -pr * .40, pr * .97, -pr * .09);
+    ctx.quadraticCurveTo(pr * 1.06, 0, pr * .97, pr * .09);     // the notch-free rounded tip
+    ctx.bezierCurveTo(pr * .84, pr * .40, pr * .26, pr * .46, 0, 0);
+    ctx.fill(); ctx.stroke();
+    ctx.restore();
+  }
+  ctx.fillStyle = 'rgba(255,214,92,.95)';
+  ctx.beginPath(); ctx.arc(0, 0, r * .16, 0, 7); ctx.fill();
+  ctx.fillStyle = 'rgba(255,246,206,.95)';
+  for (let i = 0; i < 5; i++) {
+    const a = (i / 5) * Math.PI * 2 + .5;
+    ctx.beginPath(); ctx.arc(Math.cos(a) * r * .27, Math.sin(a) * r * .27, r * .065, 0, 7); ctx.fill();
+  }
+  ctx.restore();
+}
+
 // The flourish on a freshly placed stone. `k` runs 0 -> 1 over the effect's duration.
 function drawFx(p, k) {
   const [cx, cy] = at(p), r0 = cell * 0.45, ease = 1 - (1 - k) ** 2;
@@ -709,6 +750,17 @@ function drawFx(p, k) {
       ctx.globalAlpha = 1 - k;
       ctx.fillStyle = i % 3 ? '#fff3c4' : '#ffd166';
       ctx.beginPath(); ctx.arc(cx + Math.cos(a) * d, cy + Math.sin(a) * d, rad, 0, 7); ctx.fill();
+    }
+  } else if (S.anim === 'bloom') {
+    const n = 5, size = [1, .74, .92, .66, .84];
+    const tint = [['#ffd4e4', '#ff4f8d'], ['#ffe2ec', '#ff86b2'], ['#ffe7d2', '#ff9440']];
+    for (let i = 0; i < n; i++) {
+      const a = (i / n) * Math.PI * 2 + (p % 7) * 0.29;      // per-point jitter, no RNG needed
+      const d = r0 * 0.5 + cell * 0.8 * ease;
+      const rad = cell * 0.38 * size[i] * (0.5 + 0.5 * ease);
+      ctx.globalAlpha = 1 - k ** 3;
+      flower(cx + Math.cos(a) * d, cy + Math.sin(a) * d, rad,
+             a + k * 1.1 + i, ...tint[i % 3]);
     }
   } else if (S.anim === 'rainbow') {
     const seg = 12, span = (Math.PI * 2 / seg) * 0.92;
