@@ -212,11 +212,40 @@ function negamax(b, c, depth, alpha, beta, ctx) {
   return best === -Infinity ? evalBoard(b, c) : best;
 }
 
+/** A forced win by fours only (VCF): every attacker move is a four or a five, so the
+ *  defender never gets a free move. Branching is 2-3, which is why this reaches far
+ *  deeper than the main search. Returns the first move of the kill, or null.
+ *  ponytail: no transposition table — the deadline is the safety net. */
+export function vcf(b, c, rules, maxOwn, deadline = Infinity, depth = 1) {
+  if (Date.now() > deadline) return null;
+  const op = other(c), cand = candidates(b);
+  for (const q of cand) if (analyzePoint(b, q, c, rules).five) return q;
+  if (depth >= maxOwn) return null;
+  for (const q of cand) {
+    if (c === BLACK && forbidden(b, q, rules)) continue;
+    const a = analyzePoint(b, q, c, rules);
+    if (!a.fours) continue;
+    b[q] = c;
+    const pts = fiveThreats(b, c, rules);
+    let win = pts.length >= 2;                    // two five-points: they cannot block both
+    if (!win && pts.length === 1) {
+      b[pts[0]] = op;
+      // the forced block can hand them a five of their own; then only an instant win holds
+      const safe = !fiveThreats(b, op, rules).length;
+      win = vcf(b, c, rules, safe ? maxOwn : depth + 1, deadline, depth + 1) != null;
+      b[pts[0]] = EMPTY;
+    }
+    b[q] = EMPTY;
+    if (win) return q;
+  }
+  return null;
+}
+
 export const LEVELS = {
-  easy:   { depth: 0, budget: 0,    K: 6 },
-  medium: { depth: 2, budget: 200,  K: 8 },
-  hard:   { depth: 4, budget: 800,  K: 10 },
-  expert: { depth: 8, budget: 1800, K: 12 },
+  easy:   { depth: 0, budget: 0,    K: 6,  vcf: 0 },
+  medium: { depth: 2, budget: 200,  K: 8,  vcf: 0 },
+  hard:   { depth: 4, budget: 800,  K: 10, vcf: 4 },
+  expert: { depth: 8, budget: 1800, K: 12, vcf: 8 },
 };
 
 /** Best move for `c`, or null if the board is full. */
@@ -231,12 +260,29 @@ export function bestMove(b, c, rules, level = 'medium') {
   if (blocks.length) return pick(blocks);                                      // stop their five
 
   const L = LEVELS[level] || LEVELS.medium;
-  if (!L.depth) {
+  const end = Date.now() + L.budget;   // VCF and the search share one budget, so a level
+  if (!L.depth) {                      // never costs more than its own think time
     const top = legal.map(p => [quickScore(b, p, c), p]).sort((a, z) => z[0] - a[0]).slice(0, 3);
     return top[Math.floor(Math.random() * top.length)][1];
   }
 
-  const ctx = { deadline: Date.now() + L.budget, rules, K: L.K };
+  if (L.vcf) {
+    const kill = vcf(b, c, rules, L.vcf, end);
+    if (kill != null && legal.includes(kill)) return kill;
+    // they have a kill of their own: blocking its first move usually does not refute it,
+    // so try our best points and keep the first one that makes the kill go away
+    if (vcf(b, op, rules, L.vcf, end) != null) {
+      for (const p of ordered(b, c, L.K)) {
+        if (c === BLACK && forbidden(b, p, rules)) continue;
+        b[p] = c;
+        const still = vcf(b, op, rules, L.vcf, end);
+        b[p] = EMPTY;
+        if (still == null) return p;
+      }
+    }
+  }
+
+  const ctx = { deadline: end, rules, K: L.K };
   const snap = b.slice();   // a timeout unwinds mid-search, so restore rather than untangle
   const roots = legal.map(p => [quickScore(b, p, c), p]).sort((a, z) => z[0] - a[0])
     .slice(0, L.K + 4).map(e => e[1]);

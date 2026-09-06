@@ -1,7 +1,7 @@
 // Self-check for the rules + AI. Run: node test.mjs
 import assert from 'node:assert';
 import { newBoard, idx, SIZE, BLACK, WHITE, forbidden, isWin, winLine, bestMove, analyzePoint, coach,
-         hint, fiveThreats, tempo, review, label, parsePoints } from './engine.js';
+         hint, fiveThreats, tempo, review, label, parsePoints, vcf } from './engine.js';
 
 const ALL = { doubleThree: true, doubleFour: true, overline: true };
 const FREE = { doubleThree: false, doubleFour: false, overline: false };
@@ -152,6 +152,18 @@ assert.equal(parsePoints(Array.from({ length: 226 }, () => 'H8').join(',')), nul
 // a record round-trips through the notation the whole app already uses
 const rt = [idx(7, 7), idx(0, 14), idx(14, 0)];
 assert.deepEqual(parsePoints(rt.map(label).join(',')), rt);
+
+// VCF: white's row four forces a block, and the reply sets up a straight four on the
+// diagonal. maxOwn counts the fours in the chain, so a straight four already costs two.
+b = put(newBoard(), WHITE, [2, 7], [3, 7], [4, 7], [6, 6], [7, 5]);
+put(b, BLACK, [1, 7]);                                   // row is closed on the left
+assert.equal(vcf(b, WHITE, FREE, 2), null, 'the chain is longer than two');
+assert.equal(vcf(b, WHITE, FREE, 4), idx(5, 7), 'four first, then the straight four');
+assert.equal(vcf(b, BLACK, FREE, 4), null, 'black has nothing');
+// an open three is already a kill: the straight four it makes cannot be blocked
+b = put(newBoard(), WHITE, [4, 7], [5, 7], [6, 7]);
+assert.equal(vcf(b, WHITE, FREE, 1), null, 'one four is not yet a five');
+assert.ok([idx(3, 7), idx(7, 7)].includes(vcf(b, WHITE, FREE, 2)), 'either end wins');
 
 assert.equal(label(idx(7, 7)), 'H8');
 console.log('all ok');
