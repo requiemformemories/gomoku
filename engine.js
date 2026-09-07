@@ -241,6 +241,21 @@ export function vcf(b, c, rules, maxOwn, deadline = Infinity, depth = 1) {
   return null;
 }
 
+/** Points where `op` would gain a VCF by playing there — one move before the kill exists.
+ *  A full sweep: most of these make no four and no open three yet, so there is nothing
+ *  cheaper to filter on. The deadline is what keeps it affordable. */
+function killSetups(b, op, rules, maxOwn, deadline) {
+  const out = [];
+  for (const q of candidates(b)) {
+    if (Date.now() > deadline) break;
+    b[q] = op;
+    const k = vcf(b, op, rules, maxOwn, deadline);
+    b[q] = EMPTY;
+    if (k != null) out.push(q);
+  }
+  return out;
+}
+
 export const LEVELS = {
   easy:   { depth: 0, budget: 0,    K: 6,  vcf: 0 },
   medium: { depth: 2, budget: 200,  K: 8,  vcf: 0 },
@@ -278,6 +293,30 @@ export function bestMove(b, c, rules, level = 'medium') {
         const still = vcf(b, op, rules, L.vcf, end);
         b[p] = EMPTY;
         if (still == null) return p;
+      }
+    } else {
+      // no kill yet — but do not let them walk into one. Take the point that answers every
+      // setup at once; the key point is usually one of the setups itself.
+      const set = killSetups(b, op, rules, L.vcf, end);
+      if (set.length) {
+        const tries = [...new Set([...set, ...ordered(b, c, L.K)])]
+          .filter(p => c !== BLACK || !forbidden(b, p, rules))
+          .sort((x, y) => quickScore(b, y, c) - quickScore(b, x, c));
+        for (const p of tries) {
+          if (Date.now() > end) break;
+          b[p] = c;
+          // ponytail: only the setups found before our move are rechecked, never the ones
+          // our own move opens up — a full rescan per candidate costs seconds
+          const open = set.some(q => {
+            if (b[q]) return false;                  // we took that point ourselves
+            b[q] = op;
+            const k = vcf(b, op, rules, L.vcf, end);
+            b[q] = EMPTY;
+            return k != null;
+          });
+          b[p] = EMPTY;
+          if (!open) return p;
+        }
       }
     }
   }

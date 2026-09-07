@@ -188,5 +188,17 @@ b = put(newBoard(), WHITE, [4, 7], [5, 7], [6, 7]);
 assert.equal(vcf(b, WHITE, FREE, 1), null, 'one four is not yet a five');
 assert.ok([idx(3, 7), idx(7, 7)].includes(vcf(b, WHITE, FREE, 2)), 'either end wins');
 
+// the guard: white has no kill yet, but a quiet move would give it one, and hard sees it.
+// From a real game (move 33) where E6 was black's only save out of 105 legal points.
+const g33 = parsePoints('H8 H7 I7 J6 I6 I8 J9 H9 G10 J7 K6 J5 J4 I5 H4 H5 K5 F5 G5 G6 ' +
+                        'E4 F7 I4 E8 D9 K4 F4 H6 L6 I3 M7 N8');
+const pre33 = newBoard();
+g33.forEach((p, i) => { pre33[p] = i % 2 ? WHITE : BLACK; });
+assert.equal(vcf(pre33, WHITE, ALL, 8), null, 'no kill on the board yet');
+pre33[idx(4, 9)] = WHITE;                                     // ...but E6 hands white one
+assert.ok(vcf(pre33, WHITE, ALL, 8) != null, 'E6 is the setup');
+pre33[idx(4, 9)] = 0;
+assert.equal(label(bestMove(pre33, BLACK, ALL, 'hard')), 'E6', 'take the setup point first');
+
 assert.equal(label(idx(7, 7)), 'H8');
 console.log('all ok');
