@@ -339,9 +339,31 @@ export function coach(b, p, c, rules) {
   if (mine.five) return null;                 // you won — a five elsewhere is not a miss
   const win = legalMoves(b, c, rules).find(q => analyzePoint(b, q, c, rules).five);
   if (win != null) return { key: 'missWin', at: win };
-  // a straight four has two five-points: no move blocks it, so this move is not the mistake
-  if (fiveThreats(b, op, rules).length >= 2) return { key: 'tooLate' };
-  b[p] = c;                                   // judge the threats that survive the move
+  // a five can only be stopped by taking the point itself, so two of them cannot both be
+  // answered — and neither can one of them plus a straight four somewhere else
+  const fives = fiveThreats(b, op, rules);
+  if (fives.length >= 2) return { key: 'tooLate' };
+  if (fives.length === 1) {
+    const q = fives[0];                       // the forced block, whether or not it was played
+    if (c === BLACK && forbidden(b, q, rules)) return { key: 'tooLate' };
+    // unless the block is itself a four, they get a free move after it
+    if (!analyzePoint(b, q, c, rules).fours && standing(b, q, c, op, rules).straight != null)
+      return { key: 'tooLate' };
+  }
+
+  const left = standing(b, p, c, op, rules);
+  if (left.five != null) return { key: 'missBlock', at: left.five };
+  if (mine.fours) return null;                // your own four forces them to answer first
+  if (left.straight != null) return { key: 'missOpenThree', at: left.straight };
+  return null;
+}
+
+/** op's must-answer threats that survive `c` playing at `p`: a five they can complete, or a
+ *  straight four (.XXXX.) that has two five-points and so cannot be blocked at all.
+ *  ponytail: two open threes at once still get reported as one missed three — the move
+ *  before was the real mistake, and finding it needs the full search. */
+function standing(b, p, c, op, rules) {
+  b[p] = c;
   let five = null, straight = null;
   for (const q of candidates(b)) {
     const a = analyzePoint(b, q, op, rules);
@@ -349,10 +371,7 @@ export function coach(b, p, c, rules) {
     else if (a.straight && straight == null) straight = q;
   }
   b[p] = EMPTY;
-  if (five != null) return { key: 'missBlock', at: five };
-  if (mine.fours) return null;                // your own four forces them to answer first
-  if (straight != null) return { key: 'missOpenThree', at: straight };
-  return null;
+  return { five, straight };
 }
 
 /** Points where `c` would create a four (danger 2) or an open three (danger 1). */

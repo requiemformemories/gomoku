@@ -79,6 +79,29 @@ put(b, BLACK, [0, 0]);
 assert.equal(coach(b, idx(5, 7), BLACK, ALL)?.key, 'tooLate');
 assert.equal(coach(b, idx(10, 7), BLACK, ALL)?.key, 'tooLate', 'either end is equally futile');
 
+// a five to block plus a straight four elsewhere: only one of them can be answered, so
+// the forced block is not the mistake either (this cost a real game move 31 at F12)
+b = put(newBoard(), WHITE, [6, 7], [7, 7], [8, 7], [9, 7],    // four, one end walled off
+                           [6, 11], [7, 11], [8, 11]);         // and an open three elsewhere
+put(b, BLACK, [10, 7], [0, 0]);
+assert.equal(coach(b, idx(5, 7), BLACK, ALL)?.key, 'tooLate', 'the block leaves the open three');
+assert.equal(coach(b, idx(14, 14), BLACK, ALL)?.key, 'tooLate', 'and ignoring it loses too');
+// take the open three away and blocking the five is simply correct
+b = put(newBoard(), WHITE, [6, 7], [7, 7], [8, 7], [9, 7]);
+put(b, BLACK, [10, 7], [0, 0]);
+assert.equal(coach(b, idx(5, 7), BLACK, ALL), null, 'a block that holds is not a mistake');
+
+// the real game, as played: black had to stop white's five at F12, and white's straight
+// four at F13 was standing whatever black did — lost before move 31, not a blunder
+const g31 = parsePoints('H8 I9 I7 G9 J8 H9 J9 F9 E9 I8 J6 J7 K6 G10 F11 G11 G8 H11 ' +
+                        'E8 I12 J13 I10 I11 H10 J10 H13 H12 G13 G12 E13 F12');
+const pre31 = newBoard();
+for (let i = 0; i < 30; i++) pre31[g31[i]] = i % 2 ? WHITE : BLACK;
+assert.deepEqual(fiveThreats(pre31, WHITE, ALL).map(label), ['F12'], 'one five to block');
+assert.equal(coach(pre31, g31[30], BLACK, ALL)?.key, 'tooLate');
+assert.ok(!review(g31, ALL, BLACK).worst.some(m => label(m.p) === 'F12'),
+          'the forced move must not head the mistake list');
+
 // taking your own win beats warning about theirs
 b = put(newBoard(), BLACK, [3, 7], [4, 7], [5, 7], [6, 7]);
 put(b, WHITE, [6, 9], [7, 9], [8, 9]);
