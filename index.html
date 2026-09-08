@@ -1145,7 +1145,8 @@ function commit(p) {
 
 function aiTurn() {
   S.thinking = true; render();
-  // ponytail: search runs on the main thread; move to a Worker if the freeze annoys.
+  // ponytail: search runs on the main thread, so expert freezes it for up to ~620ms.
+  // Move to a Worker if that annoys.
   setTimeout(() => {
     const p = bestMove(S.board, S.turn, S.rules, S.level);
     S.thinking = false;

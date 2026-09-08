@@ -259,8 +259,8 @@ function killSetups(b, op, rules, maxOwn, deadline) {
 export const LEVELS = {
   easy:   { depth: 0, budget: 0,    K: 6,  vcf: 0 },
   medium: { depth: 2, budget: 200,  K: 8,  vcf: 0 },
-  hard:   { depth: 4, budget: 800,  K: 10, vcf: 4 },
-  expert: { depth: 8, budget: 1800, K: 12, vcf: 8 },
+  hard:   { depth: 4, budget: 400,  K: 10, vcf: 4 },
+  expert: { depth: 8, budget: 600,  K: 12, vcf: 8 },
 };
 
 /** Best move for `c`, or null if the board is full. */
@@ -275,8 +275,11 @@ export function bestMove(b, c, rules, level = 'medium') {
   if (blocks.length) return pick(blocks);                                      // stop their five
 
   const L = LEVELS[level] || LEVELS.medium;
-  const end = Date.now() + L.budget;   // VCF and the search share one budget, so a level
-  if (!L.depth) {                      // never costs more than its own think time
+  // VCF and the search share one budget, so a level never costs more than its own think
+  // time. 600ms scored 6-5-1 against the 1800ms it used to get: the extra second buys one
+  // more iteration of a beam-12 search, and this evaluation is too coarse to spend it well.
+  const end = Date.now() + L.budget;
+  if (!L.depth) {
     const top = legal.map(p => [quickScore(b, p, c), p]).sort((a, z) => z[0] - a[0]).slice(0, 3);
     return top[Math.floor(Math.random() * top.length)][1];
   }
